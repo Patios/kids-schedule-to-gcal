@@ -1,16 +1,31 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { passwordMatches } from "@/lib/gate";
+import {
+  forgetUnlock,
+  hasRememberedUnlock,
+  passwordMatches,
+  rememberUnlock,
+} from "@/lib/gate";
 
 export function UnlockGate({ children }: { children: ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
+  const [ready, setReady] = useState(false);
   const [promptOpen, setPromptOpen] = useState(true);
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (hasRememberedUnlock()) {
+      setUnlocked(true);
+      setPromptOpen(false);
+    }
+    setReady(true);
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,6 +36,8 @@ export function UnlockGate({ children }: { children: ReactNode }) {
       setError(true);
       return;
     }
+    if (remember) rememberUnlock();
+    else forgetUnlock();
     setUnlocked(true);
     setPromptOpen(false);
     setPassword("");
@@ -41,7 +58,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
         {children}
       </div>
 
-      {!unlocked && promptOpen ? (
+      {ready && !unlocked && promptOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 p-4 backdrop-blur-sm">
           <form
             onSubmit={onSubmit}
@@ -60,6 +77,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
             <input
               id="site-password"
               type="password"
+              name="password"
               autoComplete="current-password"
               autoFocus
               value={password}
@@ -70,6 +88,15 @@ export function UnlockGate({ children }: { children: ReactNode }) {
               className="mt-4 h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               placeholder="Hasło"
             />
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+                className="size-4 accent-primary"
+              />
+              Zapamiętaj na tym urządzeniu (30 dni)
+            </label>
             {error ? (
               <p className="mt-2 text-sm text-destructive">
                 Niepoprawne hasło.
@@ -94,7 +121,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
-      {!unlocked && !promptOpen ? (
+      {ready && !unlocked && !promptOpen ? (
         <Button
           className="fixed right-4 bottom-4 z-50 shadow-lg"
           onClick={() => setPromptOpen(true)}

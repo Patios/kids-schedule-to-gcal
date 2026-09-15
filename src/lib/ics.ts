@@ -49,9 +49,16 @@ function untilUtc() {
   return "20270625T210000Z";
 }
 
+function childMeta(id: string) {
+  return CHILDREN[id as ChildId] ?? { name: id, className: "", teacher: "" };
+}
+
 function description(lesson: Lesson) {
+  const child = childMeta(lesson.child);
   const bits = [
-    `${CHILDREN[lesson.child].name}, klasa ${CHILDREN[lesson.child].className}`,
+    child.className
+      ? `${child.name}, klasa ${child.className}`
+      : child.name,
     lesson.room ? `Sala: ${lesson.room}` : null,
     lesson.teacher ? `Nauczyciel: ${lesson.teacher}` : null,
     lesson.note ?? null,
@@ -61,7 +68,7 @@ function description(lesson: Lesson) {
 }
 
 function vevent(lesson: Lesson) {
-  const child = CHILDREN[lesson.child];
+  const child = childMeta(lesson.child);
   const startDate = FIRST_DATES[lesson.weekday];
   const summary = `${child.name} · ${lesson.title}`;
   const location = lesson.location ?? (lesson.room ? `${SCHOOL} (${lesson.room})` : SCHOOL);

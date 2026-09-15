@@ -16,7 +16,7 @@ export type LessonKind =
 
 export type Lesson = {
   id: string;
-  child: ChildId;
+  child: string;
   weekday: Weekday;
   start: string;
   end: string;
@@ -94,6 +94,10 @@ export const KIND_LABEL: Record<LessonKind, string> = {
   taekwondo: "Taekwondo",
   balet: "Balet",
 };
+
+export function kindClass(kind: string) {
+  return KIND_CLASS[kind as LessonKind] ?? KIND_CLASS.extra;
+}
 
 export const KIND_CLASS: Record<LessonKind, string> = {
   wf: "bg-orange-100 text-orange-950 border-orange-200",
