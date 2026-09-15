@@ -1,20 +1,12 @@
 "use client";
 
-import { CalendarPlus, Download, MapPin } from "lucide-react";
+import { CalendarPlus, ChevronDown, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CHILDREN,
   KIND_CLASS,
-  SCHOOL,
   SCHOOL_YEAR,
   WEEKDAYS,
   lessonsFor,
@@ -226,10 +218,6 @@ export function ScheduleApp() {
             <h1 className="text-3xl font-semibold tracking-tight">
               Plan zajęć Michała i Natalki
             </h1>
-            <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="mt-0.5 size-4 shrink-0" />
-              {SCHOOL}
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">Michał · 3d</Badge>
@@ -237,19 +225,18 @@ export function ScheduleApp() {
           </div>
         </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarPlus className="size-5" />
-              Nowy kalendarz Google
-            </CardTitle>
-            <CardDescription>
+        <details className="group rounded-xl border bg-card text-card-foreground shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-6 py-4 font-semibold [&::-webkit-details-marker]:hidden">
+            <CalendarPlus className="size-5 shrink-0" />
+            <span className="flex-1">Nowy kalendarz Google</span>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="space-y-4 px-6 pb-6 text-sm leading-relaxed">
+            <p className="text-muted-foreground">
               Google Calendar nie daje się utworzyć z tej aplikacji bezpośrednio.
               Pobierz plik ICS, załóż w Google nowy kalendarz i go zaimportuj —
               wtedy plan nie zmiesza się z Twoimi spotkaniami.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm leading-relaxed">
+            </p>
             <ol className="list-decimal space-y-2 pl-5">
               <li>
                 Otwórz{" "}
@@ -283,8 +270,8 @@ export function ScheduleApp() {
               i dni wolne trzeba wyłączyć ręcznie. Dopiski z kartki (taekwondo,
               balet, zajęcia dodatkowe) są oznaczone w opisie wydarzenia.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </details>
 
         <Tabs defaultValue="all">
           <TabsList className="w-full max-w-md">
