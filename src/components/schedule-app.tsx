@@ -4,6 +4,7 @@ import { CalendarPlus, ChevronDown, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UnlockGate } from "@/components/unlock-gate";
 import {
   CHILDREN,
   KIND_CLASS,
@@ -209,6 +210,7 @@ function ImportHelp({ file, label }: { file: string; label: string }) {
 export function ScheduleApp() {
   return (
     <div className="min-h-screen bg-[oklch(0.985_0.01_90)]">
+      <UnlockGate>
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -308,6 +310,7 @@ export function ScheduleApp() {
           </TabsContent>
         </Tabs>
       </div>
+      </UnlockGate>
     </div>
   );
 }
