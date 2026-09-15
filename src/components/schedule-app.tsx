@@ -2,203 +2,14 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { CalendarPlus, ChevronDown, Download, Upload, X } from "lucide-react";
+import { LessonEditor } from "@/components/lesson-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnlockGate } from "@/components/unlock-gate";
-import { useCalendars, type ViewCalendar } from "@/lib/use-calendars";
-import {
-  SCHOOL_YEAR,
-  WEEKDAYS,
-  kindClass,
-  type Lesson,
-  type Weekday,
-} from "@/lib/schedule";
-
-const DAY_START = 7 * 60;
-const DAY_END = 19 * 60 + 30;
-const RANGE = DAY_END - DAY_START;
-
-function toMin(hhmm: string) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function top(lesson: Lesson) {
-  return ((toMin(lesson.start) - DAY_START) / RANGE) * 100;
-}
-
-function height(lesson: Lesson) {
-  return ((toMin(lesson.end) - toMin(lesson.start)) / RANGE) * 100;
-}
-
-function hours() {
-  const out: number[] = [];
-  for (let h = 7; h <= 19; h++) out.push(h);
-  return out;
-}
-
-function DayColumn({
-  day,
-  lessons,
-  names,
-  showChild,
-}: {
-  day: Weekday;
-  lessons: Lesson[];
-  names: Record<string, string>;
-  showChild: boolean;
-}) {
-  const items = lessons.filter((l) => l.weekday === day);
-  const meta = WEEKDAYS.find((d) => d.id === day)!;
-  const empty = items.length === 0;
-
-  return (
-    <div className="flex min-w-0 flex-col">
-      <div className="mb-2 text-center">
-        <p className="text-sm font-semibold">{meta.label}</p>
-        <p className="text-xs text-muted-foreground">{meta.short}</p>
-      </div>
-      <div className="relative h-[720px] rounded-xl border bg-card">
-        {hours().map((h) => (
-          <div
-            key={h}
-            className="pointer-events-none absolute right-0 left-0 border-t border-dashed border-border/70"
-            style={{ top: `${((h * 60 - DAY_START) / RANGE) * 100}%` }}
-          />
-        ))}
-        {empty ? (
-          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground">
-            Brak zajęć
-          </div>
-        ) : (
-          items.map((lesson) => {
-            return (
-              <article
-                key={lesson.id}
-                className={`absolute inset-x-1 overflow-hidden rounded-md border px-1.5 py-1 shadow-sm ${kindClass(lesson.kind)}`}
-                style={{
-                  top: `${top(lesson)}%`,
-                  height: `${Math.max(height(lesson), 4.2)}%`,
-                  zIndex: lesson.handwritten ? 2 : 1,
-                }}
-                title={`${lesson.start}–${lesson.end} ${lesson.title}`}
-              >
-                <p className="text-[11px] leading-tight font-semibold">
-                  {showChild ? `${names[lesson.child] ?? ""} · ` : null}
-                  {lesson.title}
-                </p>
-                <p className="text-[10px] leading-tight opacity-80">
-                  {lesson.start}–{lesson.end}
-                  {lesson.room ? ` · ${lesson.room}` : ""}
-                </p>
-              </article>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TimeGutter() {
-  return (
-    <div className="hidden w-12 shrink-0 sm:block">
-      <div className="mb-2 h-[40px]" />
-      <div className="relative h-[720px]">
-        {hours().map((h) => (
-          <div
-            key={h}
-            className="absolute -translate-y-1/2 text-[11px] text-muted-foreground"
-            style={{ top: `${((h * 60 - DAY_START) / RANGE) * 100}%` }}
-          >
-            {String(h).padStart(2, "0")}:00
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function WeekBoard({
-  lessons,
-  names,
-  showChild,
-}: {
-  lessons: Lesson[];
-  names: Record<string, string>;
-  showChild: boolean;
-}) {
-  return (
-    <div className="flex gap-2 overflow-x-auto pb-2">
-      <TimeGutter />
-      <div className="grid min-w-[720px] flex-1 grid-cols-5 gap-2 sm:min-w-0">
-        {WEEKDAYS.map((d) => (
-          <DayColumn
-            key={d.id}
-            day={d.id}
-            lessons={lessons}
-            names={names}
-            showChild={showChild}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MobileList({
-  lessons,
-  names,
-  showChild,
-}: {
-  lessons: Lesson[];
-  names: Record<string, string>;
-  showChild: boolean;
-}) {
-  return (
-    <div className="space-y-4 md:hidden">
-      {WEEKDAYS.map((day) => {
-        const items = lessons
-          .filter((l) => l.weekday === day.id)
-          .sort((a, b) => a.start.localeCompare(b.start));
-        return (
-          <section key={day.id}>
-            <h3 className="mb-2 text-sm font-semibold">{day.label}</h3>
-            {items.length === 0 ? (
-              <p className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">
-                Brak zajęć tego dnia.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {items.map((lesson) => (
-                  <li
-                    key={lesson.id}
-                    className={`rounded-lg border px-3 py-2 ${kindClass(lesson.kind)}`}
-                  >
-                    <p className="text-sm font-semibold">
-                      {showChild
-                        ? `${names[lesson.child] ?? ""} · ${lesson.title}`
-                        : lesson.title}
-                    </p>
-                    <p className="text-xs opacity-80">
-                      {lesson.start}–{lesson.end}
-                      {lesson.room ? ` · sala ${lesson.room}` : ""}
-                      {lesson.teacher ? ` · ${lesson.teacher}` : ""}
-                    </p>
-                    {lesson.note ? (
-                      <p className="mt-1 text-xs opacity-80">{lesson.note}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
+import { MobileList, WeekBoard } from "@/components/week-board";
+import { useCalendars, type LessonPatch, type ViewCalendar } from "@/lib/use-calendars";
+import { SCHOOL_YEAR, type Lesson } from "@/lib/schedule";
 
 function asset(path: string) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -231,9 +42,18 @@ function namesMap(calendars: ViewCalendar[]) {
 }
 
 export function ScheduleApp() {
-  const { calendars, remove, addFromIcs } = useCalendars();
+  const {
+    calendars,
+    remove,
+    addFromIcs,
+    updateLesson,
+    restoreLesson,
+    deleteLesson,
+    isModified,
+  } = useCalendars();
   const [tab, setTab] = useState("all");
   const [notice, setNotice] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Lesson | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const names = namesMap(calendars);
   const allLessons = calendars.flatMap((calendar) => calendar.lessons);
@@ -247,6 +67,14 @@ export function ScheduleApp() {
       setTab(calendars.length > 1 ? "all" : (calendars[0]?.id ?? "all"));
     }
   }, [calendars, tab]);
+
+  useEffect(() => {
+    setEditing((current) => {
+      if (!current) return current;
+      const visible = calendars.flatMap((calendar) => calendar.lessons);
+      return visible.find((lesson) => lesson.id === current.id) ?? null;
+    });
+  }, [calendars]);
 
   async function onImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -274,6 +102,56 @@ export function ScheduleApp() {
     remove(id);
     setNotice(`Usunięto ${label}. Możesz dodać ten kalendarz z powrotem plikiem ICS.`);
   }
+
+  function onSave(patch: LessonPatch) {
+    if (!editing) return;
+    updateLesson(editing.id, patch);
+    setEditing(null);
+    setNotice("Zapisano zmiany zajęć.");
+  }
+
+  function onRestore() {
+    if (!editing) return;
+    restoreLesson(editing.id);
+    setEditing(null);
+    setNotice("Przywrócono oryginalne zajęcia.");
+  }
+
+  function onDelete() {
+    if (!editing) return;
+    deleteLesson(editing.id);
+    setEditing(null);
+    setNotice("Usunięto zajęcia z planu.");
+  }
+
+  const board = (lessons: Lesson[], showChild: boolean) => (
+    <>
+      <p className="hidden text-sm text-muted-foreground md:block">
+        Kliknij zajęcia, żeby je edytować. Przeciągnij, żeby zmienić dzień i godzinę.
+      </p>
+      <p className="text-sm text-muted-foreground md:hidden">
+        Dotknij zajęcia, żeby je edytować albo przesunąć na inny dzień i godzinę.
+      </p>
+      <div className="hidden md:block">
+        <WeekBoard
+          lessons={lessons}
+          names={names}
+          showChild={showChild}
+          onOpen={setEditing}
+          onMove={(id, next) => {
+            updateLesson(id, next);
+            setNotice("Przesunięto zajęcia.");
+          }}
+        />
+      </div>
+      <MobileList
+        lessons={lessons}
+        names={names}
+        showChild={showChild}
+        onOpen={setEditing}
+      />
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-[oklch(0.985_0.01_90)]">
@@ -421,10 +299,7 @@ export function ScheduleApp() {
               ) : null}
               {calendars.length > 1 ? (
                 <TabsContent value="all" className="mt-4 space-y-4">
-                  <div className="hidden md:block">
-                    <WeekBoard lessons={allLessons} names={names} showChild />
-                  </div>
-                  <MobileList lessons={allLessons} names={names} showChild />
+                  {board(allLessons, true)}
                 </TabsContent>
               ) : null}
               {calendars.map((calendar) => (
@@ -438,24 +313,25 @@ export function ScheduleApp() {
                       Wychowawczyni: {calendar.teacher}.
                     </p>
                   ) : null}
-                  <div className="hidden md:block">
-                    <WeekBoard
-                      lessons={calendar.lessons}
-                      names={names}
-                      showChild={false}
-                    />
-                  </div>
-                  <MobileList
-                    lessons={calendar.lessons}
-                    names={names}
-                    showChild={false}
-                  />
+                  {board(calendar.lessons, false)}
                 </TabsContent>
               ))}
             </Tabs>
           )}
         </div>
       </UnlockGate>
+
+      {editing ? (
+        <LessonEditor
+          lesson={editing}
+          childName={names[editing.child]}
+          modified={isModified(editing.id)}
+          onSave={onSave}
+          onRestore={onRestore}
+          onDelete={onDelete}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </div>
   );
 }

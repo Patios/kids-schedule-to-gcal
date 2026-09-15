@@ -16,9 +16,15 @@ export type ViewCalendar = {
   builtin: boolean;
 };
 
+export type LessonPatch = Partial<
+  Pick<Lesson, "weekday" | "start" | "end" | "title" | "kind" | "room" | "teacher" | "location" | "note">
+>;
+
 type StoredState = {
   hiddenBuiltin: string[];
   imported: Omit<ViewCalendar, "builtin">[];
+  lessonPatches: Record<string, LessonPatch>;
+  deletedLessonIds: string[];
 };
 
 function builtinCalendars(): ViewCalendar[] {
@@ -44,27 +50,56 @@ function builtinCalendars(): ViewCalendar[] {
   ];
 }
 
+function emptyStored(): StoredState {
+  return {
+    hiddenBuiltin: [],
+    imported: [],
+    lessonPatches: {},
+    deletedLessonIds: [],
+  };
+}
+
 function readStored(): StoredState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { hiddenBuiltin: [], imported: [] };
+    if (!raw) return emptyStored();
     const parsed = JSON.parse(raw) as StoredState;
     return {
       hiddenBuiltin: parsed.hiddenBuiltin ?? [],
       imported: parsed.imported ?? [],
+      lessonPatches: parsed.lessonPatches ?? {},
+      deletedLessonIds: parsed.deletedLessonIds ?? [],
     };
   } catch {
-    return { hiddenBuiltin: [], imported: [] };
+    return emptyStored();
   }
 }
 
+function applyLessonEdits(lessons: Lesson[], stored: StoredState): Lesson[] {
+  const deleted = new Set(stored.deletedLessonIds);
+  return lessons
+    .filter((lesson) => !deleted.has(lesson.id))
+    .map((lesson) => {
+      const patch = stored.lessonPatches[lesson.id];
+      if (!patch) return lesson;
+      return { ...lesson, ...patch, id: lesson.id, child: lesson.child };
+    });
+}
+
 function visibleFrom(stored: StoredState): ViewCalendar[] {
-  const builtins = builtinCalendars().filter(
-    (calendar) => !stored.hiddenBuiltin.includes(calendar.id),
-  );
+  const builtins = builtinCalendars()
+    .filter((calendar) => !stored.hiddenBuiltin.includes(calendar.id))
+    .map((calendar) => ({
+      ...calendar,
+      lessons: applyLessonEdits(calendar.lessons, stored),
+    }));
   const imported = stored.imported
     .filter((calendar) => !builtins.some((item) => item.id === calendar.id))
-    .map((calendar) => ({ ...calendar, builtin: false }));
+    .map((calendar) => ({
+      ...calendar,
+      builtin: false,
+      lessons: applyLessonEdits(calendar.lessons, stored),
+    }));
   return [...builtins, ...imported];
 }
 
@@ -99,6 +134,7 @@ function applyImport(current: StoredState, parsed: ParsedCalendar[]) {
 
   return {
     next: {
+      ...current,
       hiddenBuiltin: [...hiddenBuiltin],
       imported,
     },
@@ -108,10 +144,7 @@ function applyImport(current: StoredState, parsed: ParsedCalendar[]) {
 }
 
 export function useCalendars() {
-  const [stored, setStored] = useState<StoredState>({
-    hiddenBuiltin: [],
-    imported: [],
-  });
+  const [stored, setStored] = useState<StoredState>(emptyStored);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -129,14 +162,66 @@ export function useCalendars() {
   const remove = useCallback((id: string) => {
     setStored((current) => {
       const builtin = builtinCalendars().some((calendar) => calendar.id === id);
+      if (builtin) {
+        return {
+          ...current,
+          hiddenBuiltin: [...new Set([...current.hiddenBuiltin, id])],
+        };
+      }
+      const removed = current.imported.find((calendar) => calendar.id === id);
+      const removedIds = new Set(removed?.lessons.map((lesson) => lesson.id) ?? []);
+      const lessonPatches = { ...current.lessonPatches };
+      for (const lessonId of removedIds) delete lessonPatches[lessonId];
       return {
-        hiddenBuiltin: builtin
-          ? [...new Set([...current.hiddenBuiltin, id])]
-          : current.hiddenBuiltin,
+        ...current,
         imported: current.imported.filter((calendar) => calendar.id !== id),
+        lessonPatches,
+        deletedLessonIds: current.deletedLessonIds.filter(
+          (lessonId) => !removedIds.has(lessonId),
+        ),
       };
     });
   }, []);
+
+  const updateLesson = useCallback((id: string, patch: LessonPatch) => {
+    setStored((current) => ({
+      ...current,
+      lessonPatches: {
+        ...current.lessonPatches,
+        [id]: { ...current.lessonPatches[id], ...patch },
+      },
+      deletedLessonIds: current.deletedLessonIds.filter((lessonId) => lessonId !== id),
+    }));
+  }, []);
+
+  const restoreLesson = useCallback((id: string) => {
+    setStored((current) => {
+      const lessonPatches = { ...current.lessonPatches };
+      delete lessonPatches[id];
+      return {
+        ...current,
+        lessonPatches,
+        deletedLessonIds: current.deletedLessonIds.filter((lessonId) => lessonId !== id),
+      };
+    });
+  }, []);
+
+  const deleteLesson = useCallback((id: string) => {
+    setStored((current) => {
+      const lessonPatches = { ...current.lessonPatches };
+      delete lessonPatches[id];
+      return {
+        ...current,
+        lessonPatches,
+        deletedLessonIds: [...new Set([...current.deletedLessonIds, id])],
+      };
+    });
+  }, []);
+
+  const isModified = useCallback(
+    (id: string) => Boolean(stored.lessonPatches[id]),
+    [stored.lessonPatches],
+  );
 
   const addFromIcs = useCallback((text: string, filename?: string) => {
     const parsed = parseIcs(text, filename);
@@ -155,5 +240,13 @@ export function useCalendars() {
     return { added: result.added, skipped: result.skipped, error: null as string | null };
   }, [stored]);
 
-  return { calendars, remove, addFromIcs };
+  return {
+    calendars,
+    remove,
+    addFromIcs,
+    updateLesson,
+    restoreLesson,
+    deleteLesson,
+    isModified,
+  };
 }

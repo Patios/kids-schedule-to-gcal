@@ -48,6 +48,41 @@ export const WEEKDAYS: { id: Weekday; label: string; short: string }[] = [
   { id: "FR", label: "Piątek", short: "Pi" },
 ];
 
+export const BOARD_START_MIN = 7 * 60;
+export const BOARD_END_MIN = 19 * 60 + 30;
+export const BOARD_RANGE_MIN = BOARD_END_MIN - BOARD_START_MIN;
+
+export function toMin(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+export function fromMin(mins: number) {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.round(mins)));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export function snapMin(mins: number, step = 5) {
+  return Math.round(mins / step) * step;
+}
+
+export function lessonDuration(lesson: Pick<Lesson, "start" | "end">) {
+  return Math.max(5, toMin(lesson.end) - toMin(lesson.start));
+}
+
+export function placeLesson(
+  startMin: number,
+  duration: number,
+  rangeStart = BOARD_START_MIN,
+  rangeEnd = BOARD_END_MIN,
+) {
+  const maxStart = Math.max(rangeStart, rangeEnd - duration);
+  const start = Math.min(Math.max(snapMin(startMin), rangeStart), maxStart);
+  return { start: fromMin(start), end: fromMin(start + duration) };
+}
+
 export const BELLS = [
   { nr: 0, start: "07:10", end: "07:55" },
   { nr: 1, start: "08:00", end: "08:45" },
@@ -176,7 +211,7 @@ const MICHAL: Lesson[] = [
     id: "m-mo-basen",
     child: "michal",
     weekday: "MO",
-    start: "14:40",
+    start: "13:45",
     end: "16:15",
     title: "Basen",
     kind: "basen",
@@ -466,7 +501,7 @@ const NATALKA: Lesson[] = [
     child: "natalka",
     weekday: "TU",
     start: "13:45",
-    end: "15:25",
+    end: "16:15",
     title: "Basen",
     kind: "basen",
     location: "Basen",
