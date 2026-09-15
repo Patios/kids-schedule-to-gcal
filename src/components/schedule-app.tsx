@@ -196,11 +196,16 @@ function MobileList({ child }: { child: ChildId | "all" }) {
   );
 }
 
-function ImportHelp({ who, label }: { who: string; label: string }) {
+function asset(path: string) {
+  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+  return `${base}${path}`;
+}
+
+function ImportHelp({ file, label }: { file: string; label: string }) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
       <Button asChild className="w-full sm:w-auto">
-        <a href={`/api/calendar/${who}`}>
+        <a href={asset(`/calendars/${file}`)} download>
           <Download />
           Pobierz {label}
         </a>
@@ -269,9 +274,9 @@ export function ScheduleApp() {
               </li>
             </ol>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <ImportHelp who="michal" label="Michał.ics" />
-              <ImportHelp who="natalka" label="Natalka.ics" />
-              <ImportHelp who="all" label="oba dzieci" />
+              <ImportHelp file="michal-3d.ics" label="Michał.ics" />
+              <ImportHelp file="natalka-1d.ics" label="Natalka.ics" />
+              <ImportHelp file="michal-i-natalka.ics" label="oba dzieci" />
             </div>
             <p className="text-muted-foreground">
               Zajęcia powtarzają się co tydzień do 25 czerwca 2027. Święta, ferie
