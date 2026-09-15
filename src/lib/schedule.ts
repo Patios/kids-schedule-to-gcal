@@ -4,7 +4,6 @@ export type LessonKind =
   | "wf"
   | "edwcz"
   | "angielski"
-  | "francuski"
   | "informatyka"
   | "muzyka"
   | "plastyka"
@@ -85,7 +84,6 @@ export const KIND_LABEL: Record<LessonKind, string> = {
   wf: "WF",
   edwcz: "Edukacja wczesnoszkolna",
   angielski: "Język angielski",
-  francuski: "Język francuski",
   informatyka: "Informatyka",
   muzyka: "Muzyka",
   plastyka: "Plastyka",
@@ -101,7 +99,6 @@ export const KIND_CLASS: Record<LessonKind, string> = {
   wf: "bg-orange-100 text-orange-950 border-orange-200",
   edwcz: "bg-emerald-100 text-emerald-950 border-emerald-200",
   angielski: "bg-sky-100 text-sky-950 border-sky-200",
-  francuski: "bg-indigo-100 text-indigo-950 border-indigo-200",
   informatyka: "bg-slate-100 text-slate-950 border-slate-200",
   muzyka: "bg-violet-100 text-violet-950 border-violet-200",
   plastyka: "bg-amber-100 text-amber-950 border-amber-200",
@@ -428,18 +425,6 @@ const NATALKA: Lesson[] = [
     teacher: "A-SU",
   },
   {
-    id: "n-tu-fr",
-    child: "natalka",
-    weekday: "TU",
-    start: "09:45",
-    end: "10:30",
-    title: "Język francuski",
-    kind: "francuski",
-    room: "15C",
-    teacher: "C2A",
-    note: "1. grupa (j. francuski). Na planie we wtorek wypełniona jest tylko ta grupa.",
-  },
-  {
     id: "n-tu-wf",
     child: "natalka",
     weekday: "TU",
@@ -525,18 +510,6 @@ const NATALKA: Lesson[] = [
     kind: "edwcz",
     room: "15C",
     teacher: "A-SU",
-  },
-  {
-    id: "n-th-fr",
-    child: "natalka",
-    weekday: "TH",
-    start: "09:45",
-    end: "10:30",
-    title: "Język francuski",
-    kind: "francuski",
-    room: "14A",
-    teacher: "C2A",
-    note: "1. grupa — j. francuski. 2. grupa ma w tym czasie inne zajęcia (15C).",
   },
   {
     id: "n-th-muz",
