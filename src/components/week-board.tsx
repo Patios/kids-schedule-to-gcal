@@ -21,6 +21,60 @@ function height(lesson: Lesson) {
   return ((toMin(lesson.end) - toMin(lesson.start)) / BOARD_RANGE_MIN) * 100;
 }
 
+type Lane = { col: number; cols: number };
+
+function timeOverlap(a: Lesson, b: Lesson) {
+  return toMin(a.start) < toMin(b.end) && toMin(b.start) < toMin(a.end);
+}
+
+/** Side-by-side lanes for concurrent lessons (combined Wednesday, etc.). */
+function layoutLanes(lessons: Lesson[]) {
+  const sorted = [...lessons].sort((a, b) => {
+    const byStart = toMin(a.start) - toMin(b.start);
+    if (byStart) return byStart;
+    const byChild = a.child.localeCompare(b.child);
+    if (byChild) return byChild;
+    return toMin(b.end) - toMin(a.end);
+  });
+
+  const col: number[] = [];
+  const colEnds: number[] = [];
+  for (const lesson of sorted) {
+    const start = toMin(lesson.start);
+    let lane = colEnds.findIndex((end) => end <= start);
+    if (lane < 0) {
+      lane = colEnds.length;
+      colEnds.push(0);
+    }
+    col.push(lane);
+    colEnds[lane] = toMin(lesson.end);
+  }
+
+  const parent = sorted.map((_, i) => i);
+  const find = (i: number): number =>
+    parent[i] === i ? i : (parent[i] = find(parent[i]));
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (timeOverlap(sorted[i], sorted[j])) parent[find(i)] = find(j);
+    }
+  }
+
+  const clusterCols = new Map<number, number>();
+  for (let i = 0; i < sorted.length; i++) {
+    const root = find(i);
+    clusterCols.set(root, Math.max(clusterCols.get(root) ?? 0, col[i] + 1));
+  }
+
+  const lanes = new Map<string, Lane>();
+  for (let i = 0; i < sorted.length; i++) {
+    lanes.set(sorted[i].id, {
+      col: col[i],
+      cols: clusterCols.get(find(i)) ?? 1,
+    });
+  }
+  return lanes;
+}
+
 function hours() {
   const out: number[] = [];
   for (let h = 7; h <= 19; h++) out.push(h);
@@ -76,6 +130,7 @@ function LessonCard({
   showChild,
   dragging,
   ghost,
+  lane,
   onDragStart,
   onOpen,
 }: {
@@ -84,9 +139,12 @@ function LessonCard({
   showChild: boolean;
   dragging?: boolean;
   ghost?: boolean;
+  lane?: Lane;
   onDragStart?: (event: DragEvent<HTMLElement>, lesson: Lesson) => void;
   onOpen?: (lesson: Lesson) => void;
 }) {
+  const col = lane?.col ?? 0;
+  const cols = lane?.cols ?? 1;
   return (
     <article
       role={ghost ? undefined : "button"}
@@ -96,7 +154,7 @@ function LessonCard({
       aria-label={
         ghost ? undefined : `Edytuj ${lesson.title}, ${lesson.start}–${lesson.end}`
       }
-      className={`absolute inset-x-1 overflow-hidden rounded-md border px-1.5 py-1 shadow-sm select-none ${kindClass(lesson.kind)} ${
+      className={`absolute overflow-hidden rounded-md border px-1.5 py-1 shadow-sm select-none ${kindClass(lesson.kind)} ${
         ghost
           ? "pointer-events-none z-30 ring-2 ring-ring"
           : dragging
@@ -106,7 +164,9 @@ function LessonCard({
       style={{
         top: `${top(lesson)}%`,
         height: `${Math.max(height(lesson), 4.2)}%`,
-        zIndex: ghost ? 30 : dragging ? 4 : lesson.handwritten ? 2 : 1,
+        left: `calc(${(col / cols) * 100}% + 0.25rem)`,
+        width: `calc(${100 / cols}% - 0.5rem)`,
+        zIndex: ghost ? 30 : dragging ? 20 : 1 + col,
       }}
       title={`${lesson.start}–${lesson.end} ${lesson.title}`}
       onDragStart={
@@ -164,6 +224,7 @@ function DayColumn({
   onOpen: (lesson: Lesson) => void;
 }) {
   const items = lessons.filter((l) => l.weekday === day);
+  const lanes = layoutLanes(items);
   const meta = WEEKDAYS.find((d) => d.id === day)!;
   const ghost = preview?.weekday === day ? preview : null;
   const empty = items.length === 0 && !ghost;
@@ -202,6 +263,7 @@ function DayColumn({
             names={names}
             showChild={showChild}
             dragging={draggingId === lesson.id}
+            lane={lanes.get(lesson.id)}
             onDragStart={onDragStart}
             onOpen={onOpen}
           />
@@ -386,7 +448,10 @@ export function MobileList({
       {WEEKDAYS.map((day) => {
         const items = lessons
           .filter((l) => l.weekday === day.id)
-          .sort((a, b) => a.start.localeCompare(b.start));
+          .sort(
+            (a, b) =>
+              a.start.localeCompare(b.start) || a.child.localeCompare(b.child),
+          );
         return (
           <section key={day.id}>
             <h3 className="mb-2 text-sm font-semibold">{day.label}</h3>
