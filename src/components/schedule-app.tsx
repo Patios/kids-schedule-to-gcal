@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnlockGate } from "@/components/unlock-gate";
-import { MobileList, WeekBoard } from "@/components/week-board";
+import { WeekBoard } from "@/components/week-board";
 import { useCalendars, type LessonPatch, type ViewCalendar } from "@/lib/use-calendars";
 import { SCHOOL_YEAR, type Lesson } from "@/lib/schedule";
 
@@ -130,25 +130,17 @@ export function ScheduleApp() {
         Kliknij zajęcia, żeby je edytować. Przeciągnij, żeby zmienić dzień i godzinę.
       </p>
       <p className="text-sm text-muted-foreground md:hidden">
-        Dotknij zajęcia, żeby je edytować albo przesunąć na inny dzień i godzinę.
+        Wybierz dzień albo przesuń w bok. Dotknij zajęcia, żeby je edytować.
       </p>
-      <div className="hidden md:block">
-        <WeekBoard
-          lessons={lessons}
-          names={names}
-          showChild={showChild}
-          onOpen={setEditing}
-          onMove={(id, next) => {
-            updateLesson(id, next);
-            setNotice("Przesunięto zajęcia.");
-          }}
-        />
-      </div>
-      <MobileList
+      <WeekBoard
         lessons={lessons}
         names={names}
         showChild={showChild}
         onOpen={setEditing}
+        onMove={(id, next) => {
+          updateLesson(id, next);
+          setNotice("Przesunięto zajęcia.");
+        }}
       />
     </>
   );
@@ -156,13 +148,13 @@ export function ScheduleApp() {
   return (
     <div className="min-h-screen bg-[oklch(0.985_0.01_90)]">
       <UnlockGate>
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 sm:px-6 sm:py-8 sm:gap-6">
           <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Rok szkolny {SCHOOL_YEAR.label}
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight">
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                 {heading(calendars)}
               </h1>
             </div>
@@ -176,7 +168,7 @@ export function ScheduleApp() {
           </header>
 
           <details className="group rounded-xl border bg-card text-card-foreground shadow-sm">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-6 py-4 font-semibold [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-semibold sm:px-6 sm:py-4 [&::-webkit-details-marker]:hidden">
               <CalendarPlus className="size-5 shrink-0" />
               <span className="flex-1">Nowy kalendarz Google</span>
               <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
@@ -245,8 +237,8 @@ export function ScheduleApp() {
             </div>
           ) : (
             <Tabs value={tab} onValueChange={setTab}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <TabsList className="h-auto w-fit max-w-full flex-wrap">
+              <div className="flex flex-col gap-3">
+                <TabsList className="h-auto w-full max-w-full flex-wrap justify-start">
                   {calendars.length > 1 ? (
                     <TabsTrigger value="all">Razem</TabsTrigger>
                   ) : null}
@@ -254,7 +246,7 @@ export function ScheduleApp() {
                     <TabsTrigger
                       key={calendar.id}
                       value={calendar.id}
-                      className="pr-1"
+                      className="min-h-11 pr-1 touch-manipulation md:min-h-0"
                     >
                       {calendar.label}
                       <span
@@ -287,7 +279,7 @@ export function ScheduleApp() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="shrink-0"
+                  className="w-full touch-manipulation sm:w-auto"
                   onClick={() => fileRef.current?.click()}
                 >
                   <Upload />

@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type TouchEvent } from "react";
 import {
+  BOARD_END_MIN,
   BOARD_RANGE_MIN,
   BOARD_START_MIN,
   WEEKDAYS,
@@ -13,12 +14,35 @@ import {
   type Weekday,
 } from "@/lib/schedule";
 
-function top(lesson: Lesson) {
-  return ((toMin(lesson.start) - BOARD_START_MIN) / BOARD_RANGE_MIN) * 100;
+function top(lesson: Lesson, rangeStart = BOARD_START_MIN, rangeMin = BOARD_RANGE_MIN) {
+  return ((toMin(lesson.start) - rangeStart) / rangeMin) * 100;
 }
 
-function height(lesson: Lesson) {
-  return ((toMin(lesson.end) - toMin(lesson.start)) / BOARD_RANGE_MIN) * 100;
+function height(lesson: Lesson, rangeMin = BOARD_RANGE_MIN) {
+  return ((toMin(lesson.end) - toMin(lesson.start)) / rangeMin) * 100;
+}
+
+function hourMarks(rangeStart: number, rangeEnd: number) {
+  const out: number[] = [];
+  for (let h = Math.floor(rangeStart / 60); h <= Math.floor(rangeEnd / 60); h++) {
+    out.push(h);
+  }
+  return out;
+}
+
+function dayRange(lessons: Lesson[], day: Weekday) {
+  const items = lessons.filter((lesson) => lesson.weekday === day);
+  if (items.length === 0) {
+    return { start: 8 * 60, end: 15 * 60 };
+  }
+  const first = Math.min(...items.map((lesson) => toMin(lesson.start)));
+  const last = Math.max(...items.map((lesson) => toMin(lesson.end)));
+  const start = Math.max(BOARD_START_MIN, Math.floor(first / 60) * 60);
+  const end = Math.min(
+    BOARD_END_MIN,
+    Math.max(start + 60, Math.ceil(last / 60) * 60),
+  );
+  return { start, end };
 }
 
 type Lane = { col: number; cols: number };
@@ -75,10 +99,15 @@ function layoutLanes(lessons: Lesson[]) {
   return lanes;
 }
 
-function hours() {
-  const out: number[] = [];
-  for (let h = 7; h <= 19; h++) out.push(h);
-  return out;
+function currentSchoolDay(): Weekday {
+  const day = new Date().getDay();
+  if (day >= 1 && day <= 5) return WEEKDAYS[day - 1].id;
+  return "MO";
+}
+
+function shiftDay(day: Weekday, delta: number): Weekday {
+  const index = WEEKDAYS.findIndex((item) => item.id === day);
+  return WEEKDAYS[(index + delta + WEEKDAYS.length) % WEEKDAYS.length].id;
 }
 
 type Preview = { weekday: Weekday; start: string; end: string };
@@ -131,6 +160,9 @@ function LessonCard({
   dragging,
   ghost,
   lane,
+  canDrag,
+  rangeStart = BOARD_START_MIN,
+  rangeMin = BOARD_RANGE_MIN,
   onDragStart,
   onOpen,
 }: {
@@ -140,6 +172,9 @@ function LessonCard({
   dragging?: boolean;
   ghost?: boolean;
   lane?: Lane;
+  canDrag?: boolean;
+  rangeStart?: number;
+  rangeMin?: number;
   onDragStart?: (event: DragEvent<HTMLElement>, lesson: Lesson) => void;
   onOpen?: (lesson: Lesson) => void;
 }) {
@@ -149,21 +184,23 @@ function LessonCard({
     <article
       role={ghost ? undefined : "button"}
       tabIndex={ghost ? undefined : 0}
-      draggable={!ghost}
+      draggable={!ghost && canDrag}
       aria-hidden={ghost || undefined}
       aria-label={
         ghost ? undefined : `Edytuj ${lesson.title}, ${lesson.start}–${lesson.end}`
       }
-      className={`absolute overflow-hidden rounded-md border px-1.5 py-1 shadow-sm select-none ${kindClass(lesson.kind)} ${
+      className={`absolute overflow-hidden rounded-md border px-1.5 py-1 shadow-sm select-none touch-manipulation ${kindClass(lesson.kind)} ${
         ghost
           ? "pointer-events-none z-30 ring-2 ring-ring"
           : dragging
             ? "cursor-grabbing opacity-40"
-            : "cursor-grab"
+            : canDrag
+              ? "cursor-grab"
+              : "cursor-pointer"
       }`}
       style={{
-        top: `${top(lesson)}%`,
-        height: `${Math.max(height(lesson), 4.2)}%`,
+        top: `${top(lesson, rangeStart, rangeMin)}%`,
+        height: `${Math.max(height(lesson, rangeMin), 4.2)}%`,
         left: `calc(${(col / cols) * 100}% + 0.25rem)`,
         width: `calc(${100 / cols}% - 0.5rem)`,
         zIndex: ghost ? 30 : dragging ? 20 : 1 + col,
@@ -204,6 +241,10 @@ function DayColumn({
   draggingId,
   preview,
   dropTarget,
+  hideHeader,
+  canDrag,
+  rangeStart = BOARD_START_MIN,
+  rangeEnd = BOARD_END_MIN,
   columnRef,
   onDragStart,
   onDragOver,
@@ -217,6 +258,10 @@ function DayColumn({
   draggingId: string | null;
   preview: (Preview & { lesson: Lesson }) | null;
   dropTarget: boolean;
+  hideHeader?: boolean;
+  canDrag?: boolean;
+  rangeStart?: number;
+  rangeEnd?: number;
   columnRef: (el: HTMLDivElement | null) => void;
   onDragStart: (event: DragEvent<HTMLElement>, lesson: Lesson) => void;
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
@@ -228,27 +273,31 @@ function DayColumn({
   const meta = WEEKDAYS.find((d) => d.id === day)!;
   const ghost = preview?.weekday === day ? preview : null;
   const empty = items.length === 0 && !ghost;
+  const rangeMin = Math.max(60, rangeEnd - rangeStart);
+  const marks = hourMarks(rangeStart, rangeEnd);
 
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="mb-2 text-center">
-        <p className="text-sm font-semibold">{meta.label}</p>
-        <p className="text-xs text-muted-foreground">{meta.short}</p>
-      </div>
+    <div className="flex min-w-0 flex-1 flex-col">
+      {hideHeader ? null : (
+        <div className="mb-2 text-center">
+          <p className="text-sm font-semibold">{meta.label}</p>
+          <p className="text-xs text-muted-foreground">{meta.short}</p>
+        </div>
+      )}
       <div
         ref={columnRef}
         data-weekday={day}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        className={`relative h-[720px] rounded-xl border bg-card ${
+        onDragOver={canDrag ? onDragOver : undefined}
+        onDrop={canDrag ? onDrop : undefined}
+        className={`relative h-[min(720px,calc(100dvh-11rem))] min-h-[560px] rounded-xl border bg-card md:h-[720px] md:min-h-0 ${
           dropTarget ? "ring-2 ring-ring/70" : ""
         }`}
       >
-        {hours().map((h) => (
+        {marks.map((h) => (
           <div
             key={h}
             className="pointer-events-none absolute right-0 left-0 border-t border-dashed border-border/70"
-            style={{ top: `${((h * 60 - BOARD_START_MIN) / BOARD_RANGE_MIN) * 100}%` }}
+            style={{ top: `${((h * 60 - rangeStart) / rangeMin) * 100}%` }}
           />
         ))}
         {empty ? (
@@ -264,6 +313,9 @@ function DayColumn({
             showChild={showChild}
             dragging={draggingId === lesson.id}
             lane={lanes.get(lesson.id)}
+            canDrag={canDrag}
+            rangeStart={rangeStart}
+            rangeMin={rangeMin}
             onDragStart={onDragStart}
             onOpen={onOpen}
           />
@@ -278,6 +330,8 @@ function DayColumn({
             }}
             names={names}
             showChild={showChild}
+            rangeStart={rangeStart}
+            rangeMin={rangeMin}
             ghost
           />
         ) : null}
@@ -286,16 +340,28 @@ function DayColumn({
   );
 }
 
-function TimeGutter() {
+function TimeGutter({
+  compact,
+  rangeStart = BOARD_START_MIN,
+  rangeEnd = BOARD_END_MIN,
+}: {
+  compact?: boolean;
+  rangeStart?: number;
+  rangeEnd?: number;
+}) {
+  const rangeMin = Math.max(60, rangeEnd - rangeStart);
+  const heightClass = compact
+    ? "h-[min(720px,calc(100dvh-11rem))] min-h-[560px]"
+    : "h-[720px]";
   return (
-    <div className="hidden w-12 shrink-0 sm:block">
-      <div className="mb-2 h-[40px]" />
-      <div className="relative h-[720px]">
-        {hours().map((h) => (
+    <div className={`shrink-0 ${compact ? "w-9" : "w-12"}`}>
+      <div className={compact ? "h-0" : "mb-2 h-[40px]"} />
+      <div className={`relative ${heightClass}`}>
+        {hourMarks(rangeStart, rangeEnd).map((h) => (
           <div
             key={h}
-            className="absolute -translate-y-1/2 text-[11px] text-muted-foreground"
-            style={{ top: `${((h * 60 - BOARD_START_MIN) / BOARD_RANGE_MIN) * 100}%` }}
+            className="absolute -translate-y-1/2 text-[10px] text-muted-foreground sm:text-[11px]"
+            style={{ top: `${((h * 60 - rangeStart) / rangeMin) * 100}%` }}
           >
             {String(h).padStart(2, "0")}:00
           </div>
@@ -319,9 +385,15 @@ export function WeekBoard({
   onMove: (id: string, next: Preview) => void;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [mobileDay, setMobileDay] = useState<Weekday>("MO");
   const dragRef = useRef<DragState | null>(null);
   const columnsRef = useRef<Partial<Record<Weekday, HTMLElement | null>>>({});
   const suppressClick = useRef(false);
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    setMobileDay(currentSchoolDay());
+  }, []);
 
   function setDragState(next: DragState | null) {
     dragRef.current = next;
@@ -396,99 +468,118 @@ export function WeekBoard({
     ? { ...drag.preview, lesson: drag.lesson }
     : null;
 
+  const mobileMeta = WEEKDAYS.find((day) => day.id === mobileDay)!;
+  const mobileRange = dayRange(lessons, mobileDay);
+
+  function onSwipeStart(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.changedTouches[0];
+    swipeRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function onSwipeEnd(event: TouchEvent<HTMLDivElement>) {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    suppressClick.current = true;
+    setMobileDay((day) => shiftDay(day, dx < 0 ? 1 : -1));
+    window.setTimeout(() => {
+      suppressClick.current = false;
+    }, 80);
+  }
+
   return (
-    <div
-      className={`flex gap-2 overflow-x-auto pb-2 ${drag ? "select-none" : ""}`}
-      onDragEnd={() => {
-        setDragState(null);
-        window.setTimeout(() => {
-          suppressClick.current = false;
-        }, 50);
-      }}
-    >
-      <TimeGutter />
-      <div className="grid min-w-[720px] flex-1 grid-cols-5 gap-2 sm:min-w-0">
-        {WEEKDAYS.map((d) => (
+    <>
+      <div className="md:hidden">
+        <div className="sticky top-0 z-20 -mx-1 mb-3 bg-[oklch(0.985_0.01_90)]/95 px-1 pt-1 pb-2 backdrop-blur-sm">
+          <div className="grid grid-cols-5 gap-1">
+            {WEEKDAYS.map((day) => {
+              const active = day.id === mobileDay;
+              return (
+                <button
+                  key={day.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setMobileDay(day.id)}
+                  className={`min-h-11 touch-manipulation rounded-lg border px-1 text-sm ${
+                    active
+                      ? "border-foreground/20 bg-background font-semibold shadow-sm"
+                      : "border-transparent bg-muted/70 text-muted-foreground"
+                  }`}
+                >
+                  {day.short}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-sm font-medium">{mobileMeta.label}</p>
+        </div>
+        <div
+          className="flex gap-1 touch-pan-y overscroll-x-contain"
+          onTouchStart={onSwipeStart}
+          onTouchEnd={onSwipeEnd}
+        >
+          <TimeGutter
+            compact
+            rangeStart={mobileRange.start}
+            rangeEnd={mobileRange.end}
+          />
           <DayColumn
-            key={d.id}
-            day={d.id}
+            day={mobileDay}
             lessons={lessons}
             names={names}
             showChild={showChild}
-            draggingId={drag?.lesson.id ?? null}
-            preview={preview}
-            dropTarget={preview?.weekday === d.id}
-            columnRef={(el) => {
-              columnsRef.current[d.id] = el;
-            }}
+            draggingId={null}
+            preview={null}
+            dropTarget={false}
+            hideHeader
+            rangeStart={mobileRange.start}
+            rangeEnd={mobileRange.end}
+            columnRef={() => {}}
             onDragStart={onDragStart}
             onDragOver={onDragOver}
             onDrop={onDrop}
             onOpen={onOpenCard}
           />
-        ))}
+        </div>
       </div>
-    </div>
-  );
-}
 
-export function MobileList({
-  lessons,
-  names,
-  showChild,
-  onOpen,
-}: {
-  lessons: Lesson[];
-  names: Record<string, string>;
-  showChild: boolean;
-  onOpen: (lesson: Lesson) => void;
-}) {
-  return (
-    <div className="space-y-4 md:hidden">
-      {WEEKDAYS.map((day) => {
-        const items = lessons
-          .filter((l) => l.weekday === day.id)
-          .sort(
-            (a, b) =>
-              a.start.localeCompare(b.start) || a.child.localeCompare(b.child),
-          );
-        return (
-          <section key={day.id}>
-            <h3 className="mb-2 text-sm font-semibold">{day.label}</h3>
-            {items.length === 0 ? (
-              <p className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">
-                Brak zajęć tego dnia.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {items.map((lesson) => (
-                  <li key={lesson.id}>
-                    <button
-                      type="button"
-                      className={`w-full rounded-lg border px-3 py-2 text-left ${kindClass(lesson.kind)}`}
-                      onClick={() => onOpen(lesson)}
-                    >
-                      <p className="text-sm font-semibold">
-                        {showChild
-                          ? `${names[lesson.child] ?? ""} · ${lesson.title}`
-                          : lesson.title}
-                      </p>
-                      <p className="text-xs opacity-80">
-                        {lesson.start}–{lesson.end}
-                        {lesson.room ? ` · sala ${lesson.room}` : ""}
-                        {lesson.teacher ? ` · ${lesson.teacher}` : ""}
-                      </p>
-                      {lesson.note ? (
-                        <p className="mt-1 text-xs opacity-80">{lesson.note}</p>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
-    </div>
+      <div
+        className={`hidden gap-2 overflow-x-auto pb-2 md:flex ${drag ? "select-none" : ""}`}
+        onDragEnd={() => {
+          setDragState(null);
+          window.setTimeout(() => {
+            suppressClick.current = false;
+          }, 50);
+        }}
+      >
+        <TimeGutter />
+        <div className="grid min-w-[720px] flex-1 grid-cols-5 gap-2 xl:min-w-0">
+          {WEEKDAYS.map((d) => (
+            <DayColumn
+              key={d.id}
+              day={d.id}
+              lessons={lessons}
+              names={names}
+              showChild={showChild}
+              draggingId={drag?.lesson.id ?? null}
+              preview={preview}
+              dropTarget={preview?.weekday === d.id}
+              canDrag
+              columnRef={(el) => {
+                columnsRef.current[d.id] = el;
+              }}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onOpen={onOpenCard}
+            />
+          ))}
+        </div>
+      </div>
+    </>
   );
 }

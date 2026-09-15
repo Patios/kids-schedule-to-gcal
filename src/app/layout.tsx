@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 
@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   title: "Plan zajęć — Michał i Natalka",
   description:
     "Tygodniowy plan zajęć Michała (3d) i Natalki (1d) ze SP 148 w Krakowie oraz pliki ICS do Kalendarza Google.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f7f4ee",
 };
 
 export default function RootLayout({

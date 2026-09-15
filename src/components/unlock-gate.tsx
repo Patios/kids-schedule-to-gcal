@@ -85,7 +85,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
                 setPassword(event.target.value);
                 setError(false);
               }}
-              className="mt-4 h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="mt-4 h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:h-9 md:text-sm"
               placeholder="Hasło"
             />
             <label className="mt-3 flex items-center gap-2 text-sm">
@@ -106,6 +106,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
               <Button
                 type="button"
                 variant="ghost"
+                className="min-h-11 md:min-h-9"
                 onClick={() => {
                   setPromptOpen(false);
                   setError(false);
@@ -113,7 +114,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
               >
                 Nie teraz
               </Button>
-              <Button type="submit" disabled={checking || password.trim() === ""}>
+              <Button type="submit" className="min-h-11 md:min-h-9" disabled={checking || password.trim() === ""}>
                 Pokaż plan
               </Button>
             </div>
@@ -123,7 +124,7 @@ export function UnlockGate({ children }: { children: ReactNode }) {
 
       {ready && !unlocked && !promptOpen ? (
         <Button
-          className="fixed right-4 bottom-4 z-50 shadow-lg"
+          className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 shadow-lg"
           onClick={() => setPromptOpen(true)}
         >
           <Lock />

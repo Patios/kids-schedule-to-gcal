@@ -15,7 +15,7 @@ import type { LessonPatch } from "@/lib/use-calendars";
 const KINDS = Object.entries(KIND_LABEL) as [LessonKind, string][];
 
 const fieldClass =
-  "h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:h-9 md:text-sm";
 
 export function LessonEditor({
   lesson,
@@ -85,13 +85,13 @@ export function LessonEditor({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-background/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-background/75 p-0 backdrop-blur-sm md:items-center md:p-4"
       onClick={onClose}
     >
       <form
         onSubmit={onSubmit}
         onClick={(event) => event.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border bg-card p-6 text-card-foreground shadow-lg"
+        className="max-h-[min(92dvh,100%)] w-full max-w-md overflow-y-auto rounded-t-2xl border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-card-foreground shadow-lg md:rounded-xl md:p-6"
       >
         <h2 className="text-lg font-semibold">Edytuj zajęcia</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -203,7 +203,7 @@ export function LessonEditor({
         <textarea
           id="lesson-note"
           rows={2}
-          className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
           value={note}
           onChange={(event) => setNote(event.target.value)}
         />
@@ -212,18 +212,18 @@ export function LessonEditor({
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           {modified ? (
-            <Button type="button" variant="ghost" className="sm:mr-auto" onClick={onRestore}>
+            <Button type="button" variant="ghost" className="min-h-11 sm:mr-auto md:min-h-9" onClick={onRestore}>
               Przywróć oryginał
             </Button>
           ) : null}
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" className="min-h-11 md:min-h-9" onClick={onClose}>
             Anuluj
           </Button>
-          <Button type="submit">Zapisz</Button>
+          <Button type="submit" className="min-h-11 md:min-h-9">Zapisz</Button>
         </div>
         <button
           type="button"
-          className="mt-3 text-sm text-destructive underline-offset-2 hover:underline"
+          className="mt-3 min-h-11 text-sm text-destructive underline-offset-2 hover:underline md:min-h-0"
           onClick={onDelete}
         >
           Usuń zajęcia z planu
