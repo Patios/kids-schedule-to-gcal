@@ -24,7 +24,7 @@ import {
 } from "@/lib/schedule";
 
 const DAY_START = 7 * 60;
-const DAY_END = 19 * 60;
+const DAY_END = 19 * 60 + 30;
 const RANGE = DAY_END - DAY_START;
 
 function toMin(hhmm: string) {
@@ -296,7 +296,8 @@ export function ScheduleApp() {
           <TabsContent value="michal" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
               Wychowawczyni: {CHILDREN.michal.teacher}. Start zwykle od 8:00,
-              poniedziałek kończy basen, wtorek i czwartek taekwondo.
+              poniedziałek kończy basen, wtorek i czwartek taekwondo
+              17:30–19:00.
             </p>
             <div className="hidden md:block">
               <WeekBoard child="michal" />

@@ -18,7 +18,7 @@ Z tej aplikacji nie da się kliknąć „załóż kalendarz” na koncie Google 
 
 Wydarzenia powtarzają się co tydzień do **25 czerwca 2027**. Święta, ferie i dni wolne od zajęć **nie są wyłączone**.
 
-Dopiski z kartki (taekwondo, balet, zajęcia dodatkowe) są w kalendarzu razem z lekcjami. Wtorkowe taekwondo Michała na zdjęciu ma godzinę końcową trudną do odczytu (13:00 albo 15:00) — w pliku jest **12:50–15:00**, analogicznie do czwartku.
+Dopiski z kartki (taekwondo, balet, zajęcia dodatkowe) są w kalendarzu razem z lekcjami. Taekwondo Michała: **wtorek i czwartek, 17:30–19:00**.
 
 ## Uruchomienie
 
