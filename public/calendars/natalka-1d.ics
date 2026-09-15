@@ -1,0 +1,333 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Nowek//Plan zajec dzieci//PL
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Natalka 1d — plan zajęć
+X-WR-TIMEZONE:Europe/Warsaw
+BEGIN:VTIMEZONE
+TZID:Europe/Warsaw
+X-LIC-LOCATION:Europe/Warsaw
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+TZNAME:CEST
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+TZNAME:CET
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:n-mo-ang@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260907T094500
+DTEND;TZID=Europe/Warsaw:20260907T103000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Język angielski
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 8A)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 18A\nNauczyciel: KN\nRok szkolny 2026
+ /2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie s
+ ą wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:angielski
+END:VEVENT
+BEGIN:VEVENT
+UID:n-mo-wf@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260907T104000
+DTEND;TZID=Europe/Warsaw:20260907T112500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · WF
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (s
+ ala A)
+DESCRIPTION:Natalka\, klasa 1d\nSala: sala A\nNauczyciel: A-SU\nRok szkolny
+  2026/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie 
+ nie są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:wf
+END:VEVENT
+BEGIN:VEVENT
+UID:n-mo-ed@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260907T114000
+DTEND;TZID=Europe/Warsaw:20260907T152500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Edukacja wczesnoszkolna
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:edwcz
+END:VEVENT
+BEGIN:VEVENT
+UID:n-tu-fr@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260901T094500
+DTEND;TZID=Europe/Warsaw:20260901T103000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Język francuski
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: C2A\n1. grupa (j. fr
+ ancuski). Na planie we wtorek wypełniona jest tylko ta grupa.\nRok szkolny
+  2026/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie 
+ nie są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:francuski
+END:VEVENT
+BEGIN:VEVENT
+UID:n-tu-wf@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260901T104000
+DTEND;TZID=Europe/Warsaw:20260901T112500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · WF
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (S
+ G2)
+DESCRIPTION:Natalka\, klasa 1d\nSala: SG2\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:wf
+END:VEVENT
+BEGIN:VEVENT
+UID:n-tu-ang@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260901T114000
+DTEND;TZID=Europe/Warsaw:20260901T122500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Język angielski
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: KN\nRok szkolny 2026
+ /2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie s
+ ą wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:angielski
+END:VEVENT
+BEGIN:VEVENT
+UID:n-tu-inf@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260901T124500
+DTEND;TZID=Europe/Warsaw:20260901T133000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Informatyka
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (2
+ 1C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 21C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:informatyka
+END:VEVENT
+BEGIN:VEVENT
+UID:n-tu-basen@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260901T134500
+DTEND;TZID=Europe/Warsaw:20260901T152500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Basen
+LOCATION:Basen
+DESCRIPTION:Natalka\, klasa 1d\nRok szkolny 2026/2027. Wydarzenie cykliczne
+  co tydzień do 2027-06-25. Święta i ferie nie są wyłączone — usuń je w Kal
+ endarzu Google.
+CATEGORIES:basen
+END:VEVENT
+BEGIN:VEVENT
+UID:n-tu-balet@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260901T174000
+DTEND;TZID=Europe/Warsaw:20260901T185000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Balet
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków
+DESCRIPTION:Natalka\, klasa 1d\nDopisek ręczny: 17:40–18:50.\nRok szkolny 2
+ 026/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie ni
+ e są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:balet
+END:VEVENT
+BEGIN:VEVENT
+UID:n-we-ed1@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260902T085000
+DTEND;TZID=Europe/Warsaw:20260902T093500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Edukacja wczesnoszkolna
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 4C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 14C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:edwcz
+END:VEVENT
+BEGIN:VEVENT
+UID:n-we-wf@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260902T094500
+DTEND;TZID=Europe/Warsaw:20260902T103000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · WF
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (s
+ ala A)
+DESCRIPTION:Natalka\, klasa 1d\nSala: sala A\nNauczyciel: A-SU\nRok szkolny
+  2026/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie 
+ nie są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:wf
+END:VEVENT
+BEGIN:VEVENT
+UID:n-we-ed2@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260902T104000
+DTEND;TZID=Europe/Warsaw:20260902T143000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Edukacja wczesnoszkolna
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:edwcz
+END:VEVENT
+BEGIN:VEVENT
+UID:n-th-fr@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260903T094500
+DTEND;TZID=Europe/Warsaw:20260903T103000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Język francuski
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 4A)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 14A\nNauczyciel: C2A\n1. grupa — j. f
+ rancuski. 2. grupa ma w tym czasie inne zajęcia (15C).\nRok szkolny 2026/2
+ 027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie są 
+ wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:francuski
+END:VEVENT
+BEGIN:VEVENT
+UID:n-th-muz@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260903T104000
+DTEND;TZID=Europe/Warsaw:20260903T112500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Muzyka
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:muzyka
+END:VEVENT
+BEGIN:VEVENT
+UID:n-th-ang@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260903T114000
+DTEND;TZID=Europe/Warsaw:20260903T122500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Język angielski
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: KN\nRok szkolny 2026
+ /2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie s
+ ą wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:angielski
+END:VEVENT
+BEGIN:VEVENT
+UID:n-th-ed@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260903T124500
+DTEND;TZID=Europe/Warsaw:20260903T143000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Edukacja wczesnoszkolna
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:edwcz
+END:VEVENT
+BEGIN:VEVENT
+UID:n-th-zdw@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260903T144000
+DTEND;TZID=Europe/Warsaw:20260903T152500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Zajęcia dydaktyczno-wyrównawcze
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: WW\nRok szkolny 2026
+ /2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie s
+ ą wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:zdw
+END:VEVENT
+BEGIN:VEVENT
+UID:n-th-balet@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260903T160500
+DTEND;TZID=Europe/Warsaw:20260903T171000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Balet
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków
+DESCRIPTION:Natalka\, klasa 1d\nDopisek ręczny: 16:05–17:10.\nRok szkolny 2
+ 026/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie ni
+ e są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:balet
+END:VEVENT
+BEGIN:VEVENT
+UID:n-fr-ang@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260904T080000
+DTEND;TZID=Europe/Warsaw:20260904T084500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Język angielski
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: KN\nRok szkolny 2026
+ /2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie s
+ ą wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:angielski
+END:VEVENT
+BEGIN:VEVENT
+UID:n-fr-ed@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260904T085000
+DTEND;TZID=Europe/Warsaw:20260904T103000
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Edukacja wczesnoszkolna
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:edwcz
+END:VEVENT
+BEGIN:VEVENT
+UID:n-fr-pl@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260904T104000
+DTEND;TZID=Europe/Warsaw:20260904T112500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Plastyka
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: A-SU\nRok szkolny 20
+ 26/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie nie
+  są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:plastyka
+END:VEVENT
+BEGIN:VEVENT
+UID:n-fr-rel@plan-dzieci-nowek
+DTSTAMP:20260915T090138Z
+DTSTART;TZID=Europe/Warsaw:20260904T114000
+DTEND;TZID=Europe/Warsaw:20260904T122500
+RRULE:FREQ=WEEKLY;UNTIL=20270625T210000Z
+SUMMARY:Natalka · Religia
+LOCATION:SP nr 148 im. Polskich Noblistów\, ul. Żabia 20\, 30-809 Kraków (1
+ 5C)
+DESCRIPTION:Natalka\, klasa 1d\nSala: 15C\nNauczyciel: O-SsW\nRok szkolny 2
+ 026/2027. Wydarzenie cykliczne co tydzień do 2027-06-25. Święta i ferie ni
+ e są wyłączone — usuń je w Kalendarzu Google.
+CATEGORIES:religia
+END:VEVENT
+END:VCALENDAR
