@@ -1,12 +1,5 @@
 # Plan zajęć — Michał i Natalka
 
-Tygodniowy plan zajęć ze SP nr 148 w Krakowie (ul. Żabia 20) na rok szkolny 2026/2027, odczytany z wydrukowanych kart:
-
-- **Michał**, klasa **3d**
-- **Natalka**, klasa **1d**
-
-Aplikacja pokazuje siatkę tygodnia i udostępnia pliki **ICS** do importu jako **nowe kalendarze Google** (osobno albo razem).
-
 ## Kalendarz Google
 
 1. Pobierz plik `.ics` (Michał, Natalka albo oboje).
