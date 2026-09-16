@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseIcs, type ParsedCalendar } from "./parse-ics";
 import { loadEscortPayload, saveEscortMarks } from "./escort-sync";
 import {
@@ -158,8 +158,8 @@ function applyImport(current: StoredState, parsed: ParsedCalendar[]) {
 export function useCalendars() {
   const [stored, setStored] = useState<StoredState>(emptyStored);
   const [ready, setReady] = useState(false);
-  const [escortReady, setEscortReady] = useState(false);
   const [escortOnServer, setEscortOnServer] = useState<boolean | null>(null);
+  const saveTimer = useRef<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,21 +171,17 @@ export function useCalendars() {
       const remote = await loadEscortPayload();
       if (cancelled) return;
       if (remote) {
-        const takeRemote =
-          remote.updatedAt != null || Object.keys(remote.marks).length > 0;
-        if (takeRemote) {
-          setStored((current) => ({
-            ...current,
-            escortMarks: remote.marks,
-          }));
-        }
+        setStored((current) => ({
+          ...current,
+          escortMarks: remote.marks,
+        }));
         setEscortOnServer(true);
       }
-      setEscortReady(true);
     })();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(saveTimer.current);
     };
   }, []);
 
@@ -193,16 +189,6 @@ export function useCalendars() {
     if (!ready) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   }, [ready, stored]);
-
-  useEffect(() => {
-    if (!escortReady) return;
-    const timer = window.setTimeout(() => {
-      saveEscortMarks(stored.escortMarks ?? {})
-        .then(() => setEscortOnServer(true))
-        .catch(() => setEscortOnServer(false));
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [escortReady, stored.escortMarks]);
 
   const calendars = useMemo(() => visibleFrom(stored), [stored]);
 
@@ -278,6 +264,12 @@ export function useCalendars() {
         const escortMarks = { ...current.escortMarks };
         if (next) escortMarks[key] = next;
         else delete escortMarks[key];
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = window.setTimeout(() => {
+          saveEscortMarks(escortMarks)
+            .then(() => setEscortOnServer(true))
+            .catch(() => setEscortOnServer(false));
+        }, 400);
         return { ...current, escortMarks };
       });
     },

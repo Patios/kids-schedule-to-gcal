@@ -57,8 +57,10 @@ GitHub Pages jest statyczny, więc kolory kółek (zielony / czerwony) same z si
 
 ```bash
 NEXT_PUBLIC_ESCORT_SYNC_URL=https://api.jsonbin.io/v3/b/BIN_ID
-NEXT_PUBLIC_ESCORT_SYNC_KEY=ACCESS_KEY
+NEXT_PUBLIC_ESCORT_SYNC_KEY=$$2a$$10$$....
 ```
+
+W kluczu JSONBin każde `$` zapisz jako `$$`. Next.js traktuje `$…` jak zmienną i bez tego klucz wychodzi pusty.
 
 Zrestartuj `npm run dev`. Na stronie powinno być: „Kolor zapisuje się na serwerze.”
 

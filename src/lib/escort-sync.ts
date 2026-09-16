@@ -10,12 +10,27 @@ function asset(path: string) {
   return `${base}${path}`;
 }
 
-function cloudUrl() {
-  return process.env.NEXT_PUBLIC_ESCORT_SYNC_URL?.trim() ?? "";
+function unquote(value: string) {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function env(name: string) {
+  return unquote(process.env[name] ?? "");
+}
+
+export function cloudUrl() {
+  return env("NEXT_PUBLIC_ESCORT_SYNC_URL") || env("ESCORT_SYNC_URL");
 }
 
 function cloudKey() {
-  return process.env.NEXT_PUBLIC_ESCORT_SYNC_KEY?.trim() ?? "";
+  return env("NEXT_PUBLIC_ESCORT_SYNC_KEY") || env("ESCORT_SYNC_KEY");
 }
 
 function isJsonBin(url: string) {
@@ -36,12 +51,19 @@ function writeUrl(url: string) {
   return jsonBinBase(url);
 }
 
-function requestHeaders(includeContentType: boolean): HeadersInit {
-  const headers: Record<string, string> = {};
-  if (includeContentType) headers["Content-Type"] = "application/json";
-  const key = cloudKey();
-  if (key) headers["X-Access-Key"] = key;
-  return headers;
+function isLocalHost() {
+  if (typeof window === "undefined") return false;
+  return /^(localhost|127\.|\[::1\])/.test(window.location.hostname);
+}
+
+function authHeaders(includeContentType: boolean, key: string): HeadersInit[] {
+  const base: Record<string, string> = {};
+  if (includeContentType) base["Content-Type"] = "application/json";
+  if (!key) return [base];
+  return [
+    { ...base, "X-Access-Key": key },
+    { ...base, "X-Master-Key": key },
+  ];
 }
 
 export function emptyEscortPayload(): EscortPayload {
@@ -70,33 +92,95 @@ export function parseEscortPayload(raw: unknown): EscortPayload {
   };
 }
 
-async function readJson(url: string, headers?: HeadersInit) {
-  const response = await fetch(url, { cache: "no-store", headers });
+async function parseOk(response: Response) {
+  if (!response.ok) return null;
+  return parseEscortPayload(await response.json());
+}
+
+export async function fetchCloudEscort(
+  overrides?: { url?: string; key?: string },
+): Promise<EscortPayload | null> {
+  const remote = (overrides?.url ?? cloudUrl()).trim();
+  const key = (overrides?.key ?? cloudKey()).trim();
+  if (!remote) return null;
+  const url = readUrl(remote);
+  for (const headers of authHeaders(false, key)) {
+    try {
+      const payload = await parseOk(
+        await fetch(url, { cache: "no-store", headers }),
+      );
+      if (payload) return payload;
+    } catch {
+      /* try next auth header */
+    }
+  }
+  return null;
+}
+
+export async function putCloudEscort(
+  marks: Record<string, EscortColor>,
+  overrides?: { url?: string; key?: string },
+): Promise<EscortPayload | null> {
+  const remote = (overrides?.url ?? cloudUrl()).trim();
+  const key = (overrides?.key ?? cloudKey()).trim();
+  if (!remote) return null;
+  const payload: EscortPayload = {
+    updatedAt: new Date().toISOString(),
+    marks: sanitizeEscortMarks(marks),
+  };
+  const url = writeUrl(remote);
+  const body = JSON.stringify(payload);
+  for (const headers of authHeaders(true, key)) {
+    try {
+      const saved = await parseOk(
+        await fetch(url, { method: "PUT", headers, body }),
+      );
+      if (saved) return saved;
+    } catch {
+      /* try next auth header */
+    }
+  }
+  return null;
+}
+
+async function readJson(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) return null;
   return parseEscortPayload(await response.json());
 }
 
 export async function loadEscortPayload(): Promise<EscortPayload | null> {
-  const remote = cloudUrl();
-  if (remote) {
+  const localApi = async () => {
     try {
-      return await readJson(readUrl(remote), requestHeaders(false));
+      return await readJson(asset("/api/escort/"));
     } catch {
       return null;
     }
-  }
+  };
+  const cloud = async () => {
+    try {
+      return await fetchCloudEscort();
+    } catch {
+      return null;
+    }
+  };
+  const staticFile = async () => {
+    try {
+      return await readJson(asset("/escort.json"));
+    } catch {
+      return null;
+    }
+  };
 
-  try {
-    const live = await readJson(asset("/api/escort/"));
-    if (live) return live;
-  } catch {
-    /* static hosting has no API */
+  const order = isLocalHost()
+    ? [localApi, cloud, staticFile]
+    : [cloud, localApi, staticFile];
+
+  for (const attempt of order) {
+    const payload = await attempt();
+    if (payload) return payload;
   }
-  try {
-    return await readJson(asset("/escort.json"));
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export async function saveEscortMarks(marks: Record<string, EscortColor>) {
@@ -104,11 +188,25 @@ export async function saveEscortMarks(marks: Record<string, EscortColor>) {
     updatedAt: new Date().toISOString(),
     marks: sanitizeEscortMarks(marks),
   };
-  const remote = cloudUrl();
-  const url = remote ? writeUrl(remote) : asset("/api/escort/");
-  const response = await fetch(url, {
+
+  if (isLocalHost()) {
+    const response = await fetch(asset("/api/escort/"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(`escort save failed (${response.status})`);
+    }
+    return parseEscortPayload(await response.json());
+  }
+
+  const cloud = await putCloudEscort(payload.marks);
+  if (cloud) return cloud;
+
+  const response = await fetch(asset("/api/escort/"), {
     method: "PUT",
-    headers: requestHeaders(true),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
