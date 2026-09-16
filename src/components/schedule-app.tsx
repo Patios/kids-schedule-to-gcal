@@ -50,6 +50,9 @@ export function ScheduleApp() {
     restoreLesson,
     deleteLesson,
     isModified,
+    escortMarks,
+    cycleEscort,
+    escortOnServer,
   } = useCalendars();
   const [tab, setTab] = useState("all");
   const [notice, setNotice] = useState<string | null>(null);
@@ -128,9 +131,19 @@ export function ScheduleApp() {
     <>
       <p className="hidden text-sm text-muted-foreground md:block">
         Kliknij zajęcia, żeby je edytować. Przeciągnij, żeby zmienić dzień i godzinę.
+        Kółko ze śladami na pierwszej i ostatniej lekcji: kto odprowadza (zielony / czerwony).
+        {escortOnServer === true
+          ? " Kolor zapisuje się na serwerze."
+          : escortOnServer === false
+            ? " Kolor zapisuje się na tym urządzeniu — serwer nie przyjął zapisu."
+            : ""}
       </p>
       <p className="text-sm text-muted-foreground md:hidden">
         Wybierz dzień albo przesuń w bok. Dotknij zajęcia, żeby je edytować.
+        Kółko na pierwszej i ostatniej lekcji oznacza, kto odprowadza
+        {escortOnServer === true
+          ? " i zapisuje się na serwerze."
+          : "."}
       </p>
       <WeekBoard
         lessons={lessons}
@@ -141,6 +154,8 @@ export function ScheduleApp() {
           updateLesson(id, next);
           setNotice("Przesunięto zajęcia.");
         }}
+        escortMarks={escortMarks}
+        onCycleEscort={cycleEscort}
       />
     </>
   );

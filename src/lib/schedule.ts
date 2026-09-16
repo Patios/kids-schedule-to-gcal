@@ -658,6 +658,49 @@ export function lessonsFor(child: ChildId | "all"): Lesson[] {
   return LESSONS.filter((l) => l.child === child);
 }
 
+export type EscortSlot = "start" | "end";
+export type EscortColor = "green" | "red";
+
+export function escortKey(child: string, weekday: Weekday, slot: EscortSlot) {
+  return `${child}:${weekday}:${slot}`;
+}
+
+export function nextEscortColor(current?: EscortColor): EscortColor | undefined {
+  if (current === "green") return "red";
+  if (current === "red") return undefined;
+  return "green";
+}
+
+/** First and last lesson of each child's day — drop-off / pickup marks. */
+export function escortSlotsByLesson(lessons: Lesson[]) {
+  const groups = new Map<string, Lesson[]>();
+  for (const lesson of lessons) {
+    const key = `${lesson.child}:${lesson.weekday}`;
+    const list = groups.get(key);
+    if (list) list.push(lesson);
+    else groups.set(key, [lesson]);
+  }
+
+  const slots = new Map<string, EscortSlot[]>();
+  for (const group of groups.values()) {
+    const sorted = [...group].sort(
+      (a, b) =>
+        toMin(a.start) - toMin(b.start) ||
+        toMin(a.end) - toMin(b.end) ||
+        a.id.localeCompare(b.id),
+    );
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    if (first.id === last.id) {
+      slots.set(first.id, ["start", "end"]);
+    } else {
+      slots.set(first.id, ["start"]);
+      slots.set(last.id, ["end"]);
+    }
+  }
+  return slots;
+}
+
 export const FIRST_DATES: Record<Weekday, string> = {
   MO: "2026-09-07",
   TU: "2026-09-01",

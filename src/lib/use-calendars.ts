@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseIcs, type ParsedCalendar } from "./parse-ics";
-import { CHILDREN, lessonsFor, type Lesson } from "./schedule";
+import { loadEscortPayload, saveEscortMarks } from "./escort-sync";
+import {
+  CHILDREN,
+  escortKey,
+  nextEscortColor,
+  lessonsFor,
+  type EscortColor,
+  type EscortSlot,
+  type Lesson,
+} from "./schedule";
 
 const STORAGE_KEY = "plan-zajec-visible-calendars-v1";
 
@@ -25,6 +34,7 @@ type StoredState = {
   imported: Omit<ViewCalendar, "builtin">[];
   lessonPatches: Record<string, LessonPatch>;
   deletedLessonIds: string[];
+  escortMarks: Record<string, EscortColor>;
 };
 
 function builtinCalendars(): ViewCalendar[] {
@@ -56,6 +66,7 @@ function emptyStored(): StoredState {
     imported: [],
     lessonPatches: {},
     deletedLessonIds: [],
+    escortMarks: {},
   };
 }
 
@@ -69,6 +80,7 @@ function readStored(): StoredState {
       imported: parsed.imported ?? [],
       lessonPatches: parsed.lessonPatches ?? {},
       deletedLessonIds: parsed.deletedLessonIds ?? [],
+      escortMarks: parsed.escortMarks ?? {},
     };
   } catch {
     return emptyStored();
@@ -146,16 +158,51 @@ function applyImport(current: StoredState, parsed: ParsedCalendar[]) {
 export function useCalendars() {
   const [stored, setStored] = useState<StoredState>(emptyStored);
   const [ready, setReady] = useState(false);
+  const [escortReady, setEscortReady] = useState(false);
+  const [escortOnServer, setEscortOnServer] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setStored(readStored());
+    let cancelled = false;
+    const local = readStored();
+    setStored(local);
     setReady(true);
+
+    (async () => {
+      const remote = await loadEscortPayload();
+      if (cancelled) return;
+      if (remote) {
+        const takeRemote =
+          remote.updatedAt != null || Object.keys(remote.marks).length > 0;
+        if (takeRemote) {
+          setStored((current) => ({
+            ...current,
+            escortMarks: remote.marks,
+          }));
+        }
+        setEscortOnServer(true);
+      }
+      setEscortReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (!ready) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   }, [ready, stored]);
+
+  useEffect(() => {
+    if (!escortReady) return;
+    const timer = window.setTimeout(() => {
+      saveEscortMarks(stored.escortMarks ?? {})
+        .then(() => setEscortOnServer(true))
+        .catch(() => setEscortOnServer(false));
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [escortReady, stored.escortMarks]);
 
   const calendars = useMemo(() => visibleFrom(stored), [stored]);
 
@@ -223,6 +270,20 @@ export function useCalendars() {
     [stored.lessonPatches],
   );
 
+  const cycleEscort = useCallback(
+    (child: string, weekday: Lesson["weekday"], slot: EscortSlot) => {
+      const key = escortKey(child, weekday, slot);
+      setStored((current) => {
+        const next = nextEscortColor(current.escortMarks?.[key]);
+        const escortMarks = { ...current.escortMarks };
+        if (next) escortMarks[key] = next;
+        else delete escortMarks[key];
+        return { ...current, escortMarks };
+      });
+    },
+    [],
+  );
+
   const addFromIcs = useCallback((text: string, filename?: string) => {
     const parsed = parseIcs(text, filename);
     if (parsed.length === 0) {
@@ -248,5 +309,8 @@ export function useCalendars() {
     restoreLesson,
     deleteLesson,
     isModified,
+    escortMarks: stored.escortMarks,
+    cycleEscort,
+    escortOnServer,
   };
 }

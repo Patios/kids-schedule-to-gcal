@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type TouchEvent } from "react";
+import { Footprints } from "lucide-react";
 import {
   BOARD_END_MIN,
   BOARD_RANGE_MIN,
   BOARD_START_MIN,
   WEEKDAYS,
+  escortKey,
+  escortSlotsByLesson,
   kindClass,
   lessonDuration,
   placeLesson,
   toMin,
+  type EscortColor,
+  type EscortSlot,
   type Lesson,
   type Weekday,
 } from "@/lib/schedule";
@@ -153,6 +158,59 @@ function previewFromPoint(
   return { weekday: day, ...placeLesson(startMin, lessonDuration(lesson)) };
 }
 
+const ESCORT_LABEL: Record<EscortSlot, string> = {
+  start: "Odprowadzenie do szkoły",
+  end: "Odbiór ze szkoły",
+};
+
+const ESCORT_COLOR_LABEL: Record<EscortColor, string> = {
+  green: "zielony",
+  red: "czerwony",
+};
+
+function EscortMark({
+  slot,
+  color,
+  onCycle,
+}: {
+  slot: EscortSlot;
+  color?: EscortColor;
+  onCycle?: (slot: EscortSlot) => void;
+}) {
+  const label = color
+    ? `${ESCORT_LABEL[slot]}, ${ESCORT_COLOR_LABEL[color]}`
+    : `${ESCORT_LABEL[slot]}, nieoznaczone`;
+  return (
+    <button
+      type="button"
+      data-escort={slot}
+      draggable={false}
+      aria-label={`${label}. Kliknij, żeby zmienić kolor.`}
+      title={label}
+      className={`flex size-6 shrink-0 items-center justify-center rounded-full border shadow-sm touch-manipulation md:size-5 ${
+        color === "green"
+          ? "border-green-700 bg-green-500 text-white"
+          : color === "red"
+            ? "border-red-700 bg-red-500 text-white"
+            : "border-foreground/25 bg-white/90 text-foreground/70"
+      }`}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onMouseDown={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onCycle?.(slot);
+      }}
+    >
+      <Footprints className="size-3.5 md:size-3" strokeWidth={2.4} />
+    </button>
+  );
+}
+
 function LessonCard({
   lesson,
   names,
@@ -163,6 +221,9 @@ function LessonCard({
   canDrag,
   rangeStart = BOARD_START_MIN,
   rangeMin = BOARD_RANGE_MIN,
+  escortSlots,
+  escortColor,
+  onCycleEscort,
   onDragStart,
   onOpen,
 }: {
@@ -175,15 +236,19 @@ function LessonCard({
   canDrag?: boolean;
   rangeStart?: number;
   rangeMin?: number;
+  escortSlots?: EscortSlot[];
+  escortColor?: (slot: EscortSlot) => EscortColor | undefined;
+  onCycleEscort?: (slot: EscortSlot) => void;
   onDragStart?: (event: DragEvent<HTMLElement>, lesson: Lesson) => void;
   onOpen?: (lesson: Lesson) => void;
 }) {
   const col = lane?.col ?? 0;
   const cols = lane?.cols ?? 1;
+  const marks = ghost ? [] : (escortSlots ?? []);
   return (
     <article
-      role={ghost ? undefined : "button"}
-      tabIndex={ghost ? undefined : 0}
+      role={ghost || marks.length ? undefined : "button"}
+      tabIndex={ghost || marks.length ? undefined : 0}
       draggable={!ghost && canDrag}
       aria-hidden={ghost || undefined}
       aria-label={
@@ -207,7 +272,15 @@ function LessonCard({
       }}
       title={`${lesson.start}–${lesson.end} ${lesson.title}`}
       onDragStart={
-        onDragStart ? (event) => onDragStart(event, lesson) : undefined
+        onDragStart
+          ? (event) => {
+              if ((event.target as HTMLElement).closest("[data-escort]")) {
+                event.preventDefault();
+                return;
+              }
+              onDragStart(event, lesson);
+            }
+          : undefined
       }
       onClick={onOpen ? () => onOpen(lesson) : undefined}
       onKeyDown={
@@ -221,7 +294,19 @@ function LessonCard({
           : undefined
       }
     >
-      <p className="text-[11px] leading-tight font-semibold">
+      {marks.length > 0 ? (
+        <div className="absolute top-0.5 right-0.5 z-10 flex flex-col gap-0.5">
+          {marks.map((slot) => (
+            <EscortMark
+              key={slot}
+              slot={slot}
+              color={escortColor?.(slot)}
+              onCycle={onCycleEscort}
+            />
+          ))}
+        </div>
+      ) : null}
+      <p className={`text-[11px] leading-tight font-semibold ${marks.length ? "pr-6" : ""}`}>
         {showChild ? `${names[lesson.child] ?? ""} · ` : null}
         {lesson.title}
       </p>
@@ -250,6 +335,9 @@ function DayColumn({
   onDragOver,
   onDrop,
   onOpen,
+  escortByLesson,
+  escortMarks,
+  onCycleEscort,
 }: {
   day: Weekday;
   lessons: Lesson[];
@@ -267,6 +355,9 @@ function DayColumn({
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onOpen: (lesson: Lesson) => void;
+  escortByLesson?: Map<string, EscortSlot[]>;
+  escortMarks?: Record<string, EscortColor>;
+  onCycleEscort?: (child: string, weekday: Weekday, slot: EscortSlot) => void;
 }) {
   const items = lessons.filter((l) => l.weekday === day);
   const lanes = layoutLanes(items);
@@ -316,6 +407,15 @@ function DayColumn({
             canDrag={canDrag}
             rangeStart={rangeStart}
             rangeMin={rangeMin}
+            escortSlots={escortByLesson?.get(lesson.id)}
+            escortColor={(slot) =>
+              escortMarks?.[escortKey(lesson.child, lesson.weekday, slot)]
+            }
+            onCycleEscort={
+              onCycleEscort
+                ? (slot) => onCycleEscort(lesson.child, lesson.weekday, slot)
+                : undefined
+            }
             onDragStart={onDragStart}
             onOpen={onOpen}
           />
@@ -377,12 +477,16 @@ export function WeekBoard({
   showChild,
   onOpen,
   onMove,
+  escortMarks,
+  onCycleEscort,
 }: {
   lessons: Lesson[];
   names: Record<string, string>;
   showChild: boolean;
   onOpen: (lesson: Lesson) => void;
   onMove: (id: string, next: Preview) => void;
+  escortMarks: Record<string, EscortColor>;
+  onCycleEscort: (child: string, weekday: Weekday, slot: EscortSlot) => void;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [mobileDay, setMobileDay] = useState<Weekday>("MO");
@@ -390,6 +494,7 @@ export function WeekBoard({
   const columnsRef = useRef<Partial<Record<Weekday, HTMLElement | null>>>({});
   const suppressClick = useRef(false);
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
+  const escortByLesson = useMemo(() => escortSlotsByLesson(lessons), [lessons]);
 
   useEffect(() => {
     setMobileDay(currentSchoolDay());
@@ -543,6 +648,9 @@ export function WeekBoard({
             onDragOver={onDragOver}
             onDrop={onDrop}
             onOpen={onOpenCard}
+            escortByLesson={escortByLesson}
+            escortMarks={escortMarks}
+            onCycleEscort={onCycleEscort}
           />
         </div>
       </div>
@@ -576,6 +684,9 @@ export function WeekBoard({
               onDragOver={onDragOver}
               onDrop={onDrop}
               onOpen={onOpenCard}
+              escortByLesson={escortByLesson}
+              escortMarks={escortMarks}
+              onCycleEscort={onCycleEscort}
             />
           ))}
         </div>

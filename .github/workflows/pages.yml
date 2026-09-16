@@ -32,7 +32,13 @@ jobs:
             echo "NEXT_PUBLIC_BASE_PATH=/${REPO}" >> "$GITHUB_ENV"
           fi
       - run: npm ci
+      - name: Static export without API routes
+        run: rm -rf src/app/api
       - run: npm run build
+        env:
+          STATIC_EXPORT: "1"
+          NEXT_PUBLIC_ESCORT_SYNC_URL: ${{ secrets.NEXT_PUBLIC_ESCORT_SYNC_URL }}
+          NEXT_PUBLIC_ESCORT_SYNC_KEY: ${{ secrets.NEXT_PUBLIC_ESCORT_SYNC_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
