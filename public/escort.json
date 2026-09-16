@@ -1,4 +1,7 @@
 {
-  "updatedAt": "2026-09-16T08:04:10.800Z",
-  "marks": {}
+  "updatedAt": "2026-09-16T08:12:36.222Z",
+  "marks": {
+    "michal:MO:start": "green",
+    "michal:TU:start": "red"
+  }
 }

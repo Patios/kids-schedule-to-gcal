@@ -161,6 +161,8 @@ function previewFromPoint(
 const ESCORT_LABEL: Record<EscortSlot, string> = {
   start: "Odprowadzenie do szkoły",
   end: "Odbiór ze szkoły",
+  basen: "Odbiór z basenu",
+  zdw: "Odbiór po ZDW",
 };
 
 const ESCORT_COLOR_LABEL: Record<EscortColor, string> = {

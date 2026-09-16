@@ -131,7 +131,7 @@ export function ScheduleApp() {
     <>
       <p className="hidden text-sm text-muted-foreground md:block">
         Kliknij zajęcia, żeby je edytować. Przeciągnij, żeby zmienić dzień i godzinę.
-        Kółko ze śladami na pierwszej i ostatniej lekcji: kto odprowadza (zielony / czerwony).
+        Kółko ze śladami na pierwszej i ostatniej lekcji, na basenie i po ZDW: kto odprowadza / odbiera (zielony / czerwony).
         {escortOnServer === true
           ? " Kolor zapisuje się na serwerze."
           : escortOnServer === false
@@ -140,7 +140,7 @@ export function ScheduleApp() {
       </p>
       <p className="text-sm text-muted-foreground md:hidden">
         Wybierz dzień albo przesuń w bok. Dotknij zajęcia, żeby je edytować.
-        Kółko na pierwszej i ostatniej lekcji oznacza, kto odprowadza
+        Kółko na pierwszej i ostatniej lekcji, na basenie i po ZDW oznacza, kto odprowadza / odbiera
         {escortOnServer === true
           ? " i zapisuje się na serwerze."
           : "."}

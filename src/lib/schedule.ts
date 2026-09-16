@@ -658,7 +658,7 @@ export function lessonsFor(child: ChildId | "all"): Lesson[] {
   return LESSONS.filter((l) => l.child === child);
 }
 
-export type EscortSlot = "start" | "end";
+export type EscortSlot = "start" | "end" | "basen" | "zdw";
 export type EscortColor = "green" | "red";
 
 export function escortKey(child: string, weekday: Weekday, slot: EscortSlot) {
@@ -671,7 +671,28 @@ export function nextEscortColor(current?: EscortColor): EscortColor | undefined 
   return "green";
 }
 
-/** First and last lesson of each child's day — drop-off / pickup marks. */
+function isPoolLesson(lesson: Lesson) {
+  return (
+    lesson.kind === "basen" ||
+    /basen/i.test(lesson.title) ||
+    /basen/i.test(lesson.location ?? "")
+  );
+}
+
+function isZdwLesson(lesson: Lesson) {
+  return lesson.kind === "zdw" || /dydaktyczno-wyrównawcz/i.test(lesson.title);
+}
+
+function addEscortSlot(
+  slots: Map<string, EscortSlot[]>,
+  lessonId: string,
+  slot: EscortSlot,
+) {
+  const current = slots.get(lessonId) ?? [];
+  if (!current.includes(slot)) slots.set(lessonId, [...current, slot]);
+}
+
+/** First/last lesson of each child's day, plus pickup from swimming. */
 export function escortSlotsByLesson(lessons: Lesson[]) {
   const groups = new Map<string, Lesson[]>();
   for (const lesson of lessons) {
@@ -691,11 +712,13 @@ export function escortSlotsByLesson(lessons: Lesson[]) {
     );
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
-    if (first.id === last.id) {
-      slots.set(first.id, ["start", "end"]);
-    } else {
-      slots.set(first.id, ["start"]);
-      slots.set(last.id, ["end"]);
+    addEscortSlot(slots, first.id, "start");
+    addEscortSlot(slots, last.id, "end");
+    for (const lesson of sorted) {
+      const existing = slots.get(lesson.id) ?? [];
+      if (existing.includes("end")) continue;
+      if (isPoolLesson(lesson)) addEscortSlot(slots, lesson.id, "basen");
+      if (isZdwLesson(lesson)) addEscortSlot(slots, lesson.id, "zdw");
     }
   }
   return slots;
