@@ -163,6 +163,7 @@ const ESCORT_LABEL: Record<EscortSlot, string> = {
   end: "Odbiór ze szkoły",
   basen: "Odbiór z basenu",
   zdw: "Odbiór po ZDW",
+  school: "Odbiór ze szkoły",
 };
 
 const ESCORT_COLOR_LABEL: Record<EscortColor, string> = {

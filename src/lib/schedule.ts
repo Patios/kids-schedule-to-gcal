@@ -658,7 +658,7 @@ export function lessonsFor(child: ChildId | "all"): Lesson[] {
   return LESSONS.filter((l) => l.child === child);
 }
 
-export type EscortSlot = "start" | "end" | "basen" | "zdw";
+export type EscortSlot = "start" | "end" | "basen" | "zdw" | "school";
 export type EscortColor = "green" | "red";
 
 export function escortKey(child: string, weekday: Weekday, slot: EscortSlot) {
@@ -681,6 +681,10 @@ function isPoolLesson(lesson: Lesson) {
 
 function isZdwLesson(lesson: Lesson) {
   return lesson.kind === "zdw" || /dydaktyczno-wyrównawcz/i.test(lesson.title);
+}
+
+function isAfterSchool(lesson: Lesson) {
+  return lesson.kind === "taekwondo" || lesson.kind === "balet";
 }
 
 function addEscortSlot(
@@ -714,6 +718,15 @@ export function escortSlotsByLesson(lessons: Lesson[]) {
     const last = sorted[sorted.length - 1];
     addEscortSlot(slots, first.id, "start");
     addEscortSlot(slots, last.id, "end");
+    const lastSchool = [...sorted].reverse().find((lesson) => !isAfterSchool(lesson));
+    if (
+      lastSchool &&
+      lastSchool.id !== last.id &&
+      !isPoolLesson(lastSchool) &&
+      !isZdwLesson(lastSchool)
+    ) {
+      addEscortSlot(slots, lastSchool.id, "school");
+    }
     for (const lesson of sorted) {
       const existing = slots.get(lesson.id) ?? [];
       if (existing.includes("end")) continue;
