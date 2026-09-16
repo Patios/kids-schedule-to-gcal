@@ -21,16 +21,67 @@ function unquote(value: string) {
   return trimmed;
 }
 
-function env(name: string) {
-  return unquote(process.env[name] ?? "");
+function normalizeKey(value: string) {
+  return unquote(value).replaceAll("$$", "$").trim();
+}
+
+/** Next inlinuje tylko statyczny odczyt `process.env.NAZWA`, nie `process.env[name]`. */
+function envFromBuild() {
+  return {
+    url: unquote(
+      process.env.NEXT_PUBLIC_ESCORT_SYNC_URL ||
+        process.env.ESCORT_SYNC_URL ||
+        "",
+    ).trim(),
+    key: normalizeKey(
+      process.env.NEXT_PUBLIC_ESCORT_SYNC_KEY ||
+        process.env.ESCORT_SYNC_KEY ||
+        "",
+    ),
+  };
 }
 
 export function cloudUrl() {
-  return env("NEXT_PUBLIC_ESCORT_SYNC_URL") || env("ESCORT_SYNC_URL");
+  return envFromBuild().url;
 }
 
-function cloudKey() {
-  return env("NEXT_PUBLIC_ESCORT_SYNC_KEY") || env("ESCORT_SYNC_KEY");
+let fileConfigPromise: Promise<{ url: string; key: string } | null> | null =
+  null;
+
+async function configFromFile() {
+  if (typeof window === "undefined") return null;
+  if (!fileConfigPromise) {
+    fileConfigPromise = (async () => {
+      try {
+        const response = await fetch(asset("/escort-sync.json"), {
+          cache: "no-store",
+        });
+        if (!response.ok) return null;
+        const data = (await response.json()) as { url?: unknown; key?: unknown };
+        const url = typeof data.url === "string" ? data.url.trim() : "";
+        const key = typeof data.key === "string" ? normalizeKey(data.key) : "";
+        if (!url) return null;
+        return { url, key };
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return fileConfigPromise;
+}
+
+async function resolveCloud(overrides?: { url?: string; key?: string }) {
+  if (overrides?.url) {
+    return {
+      url: overrides.url.trim(),
+      key: normalizeKey(overrides.key ?? ""),
+    };
+  }
+  const fromEnv = envFromBuild();
+  if (fromEnv.url && fromEnv.key) return fromEnv;
+  const fromFile = await configFromFile();
+  if (fromFile?.url) return fromFile;
+  return fromEnv;
 }
 
 function isJsonBin(url: string) {
@@ -100,8 +151,7 @@ async function parseOk(response: Response) {
 export async function fetchCloudEscort(
   overrides?: { url?: string; key?: string },
 ): Promise<EscortPayload | null> {
-  const remote = (overrides?.url ?? cloudUrl()).trim();
-  const key = (overrides?.key ?? cloudKey()).trim();
+  const { url: remote, key } = await resolveCloud(overrides);
   if (!remote) return null;
   const url = readUrl(remote);
   for (const headers of authHeaders(false, key)) {
@@ -121,8 +171,7 @@ export async function putCloudEscort(
   marks: Record<string, EscortColor>,
   overrides?: { url?: string; key?: string },
 ): Promise<EscortPayload | null> {
-  const remote = (overrides?.url ?? cloudUrl()).trim();
-  const key = (overrides?.key ?? cloudKey()).trim();
+  const { url: remote, key } = await resolveCloud(overrides);
   if (!remote) return null;
   const payload: EscortPayload = {
     updatedAt: new Date().toISOString(),

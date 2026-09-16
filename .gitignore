@@ -44,3 +44,6 @@ next-env.d.ts
 # local agent scratch
 /agent-tools/
 /assets/
+
+# generated at Pages build from GitHub secrets (JSONBin URL + Access Key)
+/public/escort-sync.json

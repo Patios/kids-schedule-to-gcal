@@ -32,6 +32,19 @@ jobs:
             echo "NEXT_PUBLIC_BASE_PATH=/${REPO}" >> "$GITHUB_ENV"
           fi
       - run: npm ci
+      - name: Write escort-sync.json from secrets
+        env:
+          ESCORT_URL: ${{ secrets.NEXT_PUBLIC_ESCORT_SYNC_URL }}
+          ESCORT_KEY: ${{ secrets.NEXT_PUBLIC_ESCORT_SYNC_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          url = os.environ.get("ESCORT_URL") or ""
+          key = (os.environ.get("ESCORT_KEY") or "").replace("$$", "$")
+          with open("public/escort-sync.json", "w") as f:
+              json.dump({"url": url, "key": key}, f)
+          print("escort-sync.json url=", bool(url), "key_len=", len(key))
+          PY
       - name: Static export without API routes
         run: rm -rf src/app/api
       - run: npm run build

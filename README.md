@@ -67,10 +67,12 @@ Zrestartuj `npm run dev`. Na stronie powinno być: „Kolor zapisuje się na ser
 6. To samo w GitHubie, żeby działało na telefonach:
    - repo → **Settings → Secrets and variables → Actions → New repository secret**
    - sekret `NEXT_PUBLIC_ESCORT_SYNC_URL` = `https://api.jsonbin.io/v3/b/BIN_ID`
-   - sekret `NEXT_PUBLIC_ESCORT_SYNC_KEY` = Access Key
+   - sekret `NEXT_PUBLIC_ESCORT_SYNC_KEY` = Access Key **z pojedynczym `$`** (nie `$$` — to tylko w `.env.local`)
    - **Actions → GitHub Pages → Run workflow** (albo push na `main`)
 
-Po deployu odśwież stronę na obu telefonach. Zmiana koloru na jednym powinna pojawić się na drugim po odświeżeniu.
+Workflow zapisuje `escort-sync.json` z sekretów (Python, bez zjadania `$`). Telefon pobiera ten plik i gada z tym samym JSONBin co `npm run dev`.
+
+Po deployu zrób twarde odświeżenie na telefonie (w Chrome: menu → Odśwież, albo zamknij kartę). Zmiana koloru na jednym urządzeniu powinna pojawić się na drugim po **Odśwież status**.
 
 **Uwaga:** `NEXT_PUBLIC_…` trafia do JS w przeglądarce. Klucz umie odczytać każdy, kto ma kod strony — dlatego Access Key tylko z Read+Update, nigdy Master Key. To tylko kolory odprowadzania, nie hasło do kalendarza.
 
