@@ -182,8 +182,9 @@ export function useCalendars() {
 
   const applyRemoteMarks = useCallback(async () => {
     const remote = await loadEscortPayload();
+    remoteReady.current = true;
     if (!remote) {
-      remoteReady.current = true;
+      setEscortOnServer(false);
       return false;
     }
     setStored((current) => ({
@@ -191,7 +192,6 @@ export function useCalendars() {
       escortMarks: remote.marks,
     }));
     setEscortOnServer(true);
-    remoteReady.current = true;
     return true;
   }, []);
 
@@ -354,5 +354,6 @@ export function useCalendars() {
     escortMarks: stored.escortMarks,
     cycleEscort,
     escortOnServer,
+    refreshEscort: applyRemoteMarks,
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { CalendarPlus, ChevronDown, Download, Upload, X } from "lucide-react";
+import { CalendarPlus, ChevronDown, Download, RefreshCw, Upload, X } from "lucide-react";
 import { LessonEditor } from "@/components/lesson-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,10 +53,12 @@ export function ScheduleApp() {
     escortMarks,
     cycleEscort,
     escortOnServer,
+    refreshEscort,
   } = useCalendars();
   const [tab, setTab] = useState("all");
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Lesson | null>(null);
+  const [refreshingEscort, setRefreshingEscort] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const names = namesMap(calendars);
   const allLessons = calendars.flatMap((calendar) => calendar.lessons);
@@ -127,6 +129,13 @@ export function ScheduleApp() {
     setNotice("Usunięto zajęcia z planu.");
   }
 
+  async function onRefreshEscort() {
+    setRefreshingEscort(true);
+    const ok = await refreshEscort();
+    setRefreshingEscort(false);
+    setNotice(ok ? "Odświeżono kolory z serwera." : "Nie udało się pobrać kolorów z serwera.");
+  }
+
   const board = (lessons: Lesson[], showChild: boolean) => (
     <>
       <p className="hidden text-sm text-muted-foreground md:block">
@@ -145,6 +154,19 @@ export function ScheduleApp() {
           ? " i zapisuje się na serwerze."
           : "."}
       </p>
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="touch-manipulation"
+          disabled={refreshingEscort}
+          onClick={() => void onRefreshEscort()}
+        >
+          <RefreshCw className={refreshingEscort ? "animate-spin" : undefined} />
+          Odśwież status
+        </Button>
+      </div>
       <WeekBoard
         lessons={lessons}
         names={names}
