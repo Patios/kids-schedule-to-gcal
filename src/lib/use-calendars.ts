@@ -159,12 +159,46 @@ export function useCalendars() {
   const [stored, setStored] = useState<StoredState>(emptyStored);
   const [ready, setReady] = useState(false);
   const [escortOnServer, setEscortOnServer] = useState<boolean | null>(null);
+  const [escortSynced, setEscortSynced] = useState(false);
   const saveTimer = useRef<number>(0);
+  const remoteReady = useRef(false);
+  const skipFocusRefetch = useRef(false);
+
+  const persistEscort = useCallback((marks: Record<string, EscortColor>) => {
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      skipFocusRefetch.current = true;
+      saveEscortMarks(marks)
+        .then((saved) => {
+          setStored((current) => ({ ...current, escortMarks: saved.marks }));
+          setEscortOnServer(true);
+        })
+        .catch(() => setEscortOnServer(false))
+        .finally(() => {
+          skipFocusRefetch.current = false;
+        });
+    }, 400);
+  }, []);
+
+  const applyRemoteMarks = useCallback(async () => {
+    const remote = await loadEscortPayload();
+    if (!remote) {
+      remoteReady.current = true;
+      return false;
+    }
+    setStored((current) => ({
+      ...current,
+      escortMarks: remote.marks,
+    }));
+    setEscortOnServer(true);
+    remoteReady.current = true;
+    return true;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const local = readStored();
-    setStored(local);
+    setStored({ ...local, escortMarks: {} });
     setReady(true);
 
     (async () => {
@@ -176,7 +210,14 @@ export function useCalendars() {
           escortMarks: remote.marks,
         }));
         setEscortOnServer(true);
+      } else {
+        setStored((current) => ({
+          ...current,
+          escortMarks: local.escortMarks,
+        }));
       }
+      remoteReady.current = true;
+      setEscortSynced(true);
     })();
 
     return () => {
@@ -186,9 +227,23 @@ export function useCalendars() {
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
+    function onFocus() {
+      if (skipFocusRefetch.current || !remoteReady.current) return;
+      if (document.visibilityState === "hidden") return;
+      void applyRemoteMarks();
+    }
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [applyRemoteMarks]);
+
+  useEffect(() => {
+    if (!ready || !escortSynced) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  }, [ready, stored]);
+  }, [ready, escortSynced, stored]);
 
   const calendars = useMemo(() => visibleFrom(stored), [stored]);
 
@@ -264,16 +319,11 @@ export function useCalendars() {
         const escortMarks = { ...current.escortMarks };
         if (next) escortMarks[key] = next;
         else delete escortMarks[key];
-        window.clearTimeout(saveTimer.current);
-        saveTimer.current = window.setTimeout(() => {
-          saveEscortMarks(escortMarks)
-            .then(() => setEscortOnServer(true))
-            .catch(() => setEscortOnServer(false));
-        }, 400);
+        if (remoteReady.current) persistEscort(escortMarks);
         return { ...current, escortMarks };
       });
     },
-    [],
+    [persistEscort],
   );
 
   const addFromIcs = useCallback((text: string, filename?: string) => {

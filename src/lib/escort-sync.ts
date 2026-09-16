@@ -150,37 +150,26 @@ async function readJson(url: string) {
 }
 
 export async function loadEscortPayload(): Promise<EscortPayload | null> {
-  const localApi = async () => {
+  if (isLocalHost()) {
     try {
       return await readJson(asset("/api/escort/"));
     } catch {
       return null;
     }
-  };
-  const cloud = async () => {
-    try {
-      return await fetchCloudEscort();
-    } catch {
-      return null;
-    }
-  };
-  const staticFile = async () => {
-    try {
-      return await readJson(asset("/escort.json"));
-    } catch {
-      return null;
-    }
-  };
-
-  const order = isLocalHost()
-    ? [localApi, cloud, staticFile]
-    : [cloud, localApi, staticFile];
-
-  for (const attempt of order) {
-    const payload = await attempt();
-    if (payload) return payload;
   }
-  return null;
+
+  try {
+    const cloud = await fetchCloudEscort();
+    if (cloud) return cloud;
+  } catch {
+    /* Pages without a valid key */
+  }
+
+  try {
+    return await readJson(asset("/api/escort/"));
+  } catch {
+    return null;
+  }
 }
 
 export async function saveEscortMarks(marks: Record<string, EscortColor>) {

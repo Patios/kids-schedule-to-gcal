@@ -1,7 +1,29 @@
 {
-  "updatedAt": "2026-09-16T08:12:36.222Z",
+  "updatedAt": "2026-09-16T09:29:24.780Z",
   "marks": {
     "michal:MO:start": "green",
-    "michal:TU:start": "red"
+    "michal:TU:start": "green",
+    "natalka:TU:start": "green",
+    "natalka:WE:start": "green",
+    "michal:WE:start": "green",
+    "michal:TH:start": "green",
+    "michal:FR:start": "green",
+    "natalka:FR:start": "green",
+    "michal:MO:end": "red",
+    "natalka:TU:basen": "green",
+    "michal:TU:end": "red",
+    "natalka:TU:end": "green",
+    "natalka:MO:end": "green",
+    "natalka:WE:end": "green",
+    "michal:WE:end": "green",
+    "natalka:TH:start": "green",
+    "natalka:TH:end": "green",
+    "michal:TH:end": "green",
+    "natalka:TH:zdw": "green",
+    "natalka:FR:end": "green",
+    "michal:FR:end": "green",
+    "natalka:MO:start": "green",
+    "michal:TH:school": "red",
+    "michal:TU:school": "red"
   }
 }

@@ -59,7 +59,14 @@ export async function GET() {
   const cloud = cloudConfig();
   if (cloud.url) {
     const remote = await fetchCloudEscort(cloud);
-    if (remote) return NextResponse.json(remote);
+    if (remote) {
+      try {
+        await writeFile(file, `${JSON.stringify(remote, null, 2)}\n`);
+      } catch {
+        /* cache file is optional */
+      }
+      return NextResponse.json(remote);
+    }
     return NextResponse.json(
       { error: "Nie udało się odczytać kolorów z JSONBin." },
       { status: 502 },
@@ -89,6 +96,11 @@ export async function PUT(request: Request) {
         { error: "Nie udało się zapisać kolorów do JSONBin." },
         { status: 502 },
       );
+    }
+    try {
+      await writeFile(file, `${JSON.stringify(saved, null, 2)}\n`);
+    } catch {
+      /* cache file is optional */
     }
     return NextResponse.json(saved);
   }
