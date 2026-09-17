@@ -551,6 +551,15 @@ const NATALKA: Lesson[] = [
     teacher: "A-SU",
   },
   {
+    id: "n-th-rozwoj",
+    child: "natalka",
+    weekday: "TH",
+    start: "09:45",
+    end: "10:30",
+    title: "Zajęcia rozwojowo-plastyczne",
+    kind: "plastyka",
+  },
+  {
     id: "n-th-muz",
     child: "natalka",
     weekday: "TH",
