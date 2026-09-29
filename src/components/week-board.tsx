@@ -164,6 +164,7 @@ const ESCORT_LABEL: Record<EscortSlot, string> = {
   basen: "Odbiór z basenu",
   zdw: "Odbiór po ZDW",
   school: "Odbiór ze szkoły",
+  earlystage: "Odbiór z EarlyStage",
 };
 
 const ESCORT_COLOR_LABEL: Record<EscortColor, string> = {
@@ -182,7 +183,9 @@ function EscortMark({
 }) {
   const label = color
     ? `${ESCORT_LABEL[slot]}, ${ESCORT_COLOR_LABEL[color]}`
-    : `${ESCORT_LABEL[slot]}, nieoznaczone`;
+    : slot === "earlystage"
+      ? `${ESCORT_LABEL[slot]}, szary`
+      : `${ESCORT_LABEL[slot]}, nieoznaczone`;
   return (
     <button
       type="button"
@@ -195,7 +198,9 @@ function EscortMark({
           ? "border-green-700 bg-green-500 text-white"
           : color === "red"
             ? "border-red-700 bg-red-500 text-white"
-            : "border-foreground/25 bg-white/90 text-foreground/70"
+            : slot === "earlystage"
+              ? "border-stone-600 bg-stone-400 text-white"
+              : "border-foreground/25 bg-white/90 text-foreground/70"
       }`}
       onPointerDown={(event) => {
         event.stopPropagation();

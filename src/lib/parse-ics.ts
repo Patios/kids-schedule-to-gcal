@@ -27,6 +27,7 @@ const KIND_FROM_TITLE: [RegExp, LessonKind][] = [
   [/balet/i, "balet"],
   [/basen/i, "basen"],
   [/\bwf\b/i, "wf"],
+  [/early\s*stage/i, "earlystage"],
   [/angielsk/i, "angielski"],
   [/informatyk/i, "informatyka"],
   [/muzyk/i, "muzyka"],

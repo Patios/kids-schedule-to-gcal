@@ -12,7 +12,8 @@ export type LessonKind =
   | "basen"
   | "extra"
   | "taekwondo"
-  | "balet";
+  | "balet"
+  | "earlystage";
 
 export type Lesson = {
   id: string;
@@ -128,6 +129,7 @@ export const KIND_LABEL: Record<LessonKind, string> = {
   extra: "Zajęcia dodatkowe",
   taekwondo: "Taekwondo",
   balet: "Balet",
+  earlystage: "Angielski EarlyStage",
 };
 
 export function kindClass(kind: string) {
@@ -147,6 +149,7 @@ export const KIND_CLASS: Record<LessonKind, string> = {
   extra: "bg-stone-100 text-stone-950 border-stone-300",
   taekwondo: "bg-red-100 text-red-950 border-red-200",
   balet: "bg-pink-100 text-pink-950 border-pink-200",
+  earlystage: "bg-stone-200 text-stone-950 border-stone-400",
 };
 
 const MICHAL: Lesson[] = [
@@ -273,6 +276,16 @@ const MICHAL: Lesson[] = [
     teacher: "D-ZN",
     handwritten: true,
     note: "Dopisek ręczny na planie (sala 22B, D-ZN).",
+  },
+  {
+    id: "m-tu-earlystage",
+    child: "michal",
+    weekday: "TU",
+    start: "14:50",
+    end: "16:10",
+    title: "Angielski EarlyStage",
+    kind: "earlystage",
+    location: "EarlyStage",
   },
   {
     id: "m-tu-tkd",
@@ -427,6 +440,16 @@ const MICHAL: Lesson[] = [
     room: "24C",
     teacher: "KA",
   },
+  {
+    id: "m-fr-earlystage",
+    child: "michal",
+    weekday: "FR",
+    start: "12:35",
+    end: "13:55",
+    title: "Angielski EarlyStage",
+    kind: "earlystage",
+    location: "EarlyStage",
+  },
 ];
 
 const NATALKA: Lesson[] = [
@@ -551,6 +574,16 @@ const NATALKA: Lesson[] = [
     teacher: "A-SU",
   },
   {
+    id: "n-we-earlystage",
+    child: "natalka",
+    weekday: "WE",
+    start: "14:40",
+    end: "15:40",
+    title: "Angielski EarlyStage",
+    kind: "earlystage",
+    location: "EarlyStage",
+  },
+  {
     id: "n-th-rozwoj",
     child: "natalka",
     weekday: "TH",
@@ -658,6 +691,16 @@ const NATALKA: Lesson[] = [
     room: "15C",
     teacher: "O-SsW",
   },
+  {
+    id: "n-fr-earlystage",
+    child: "natalka",
+    weekday: "FR",
+    start: "14:05",
+    end: "15:05",
+    title: "Angielski EarlyStage",
+    kind: "earlystage",
+    location: "EarlyStage",
+  },
 ];
 
 export const LESSONS: Lesson[] = [...MICHAL, ...NATALKA];
@@ -667,7 +710,7 @@ export function lessonsFor(child: ChildId | "all"): Lesson[] {
   return LESSONS.filter((l) => l.child === child);
 }
 
-export type EscortSlot = "start" | "end" | "basen" | "zdw" | "school";
+export type EscortSlot = "start" | "end" | "basen" | "zdw" | "school" | "earlystage";
 export type EscortColor = "green" | "red";
 
 export function escortKey(child: string, weekday: Weekday, slot: EscortSlot) {
@@ -692,8 +735,16 @@ function isZdwLesson(lesson: Lesson) {
   return lesson.kind === "zdw" || /dydaktyczno-wyrównawcz/i.test(lesson.title);
 }
 
+function isEarlyStage(lesson: Lesson) {
+  return lesson.kind === "earlystage" || /early\s*stage/i.test(lesson.title);
+}
+
 function isAfterSchool(lesson: Lesson) {
-  return lesson.kind === "taekwondo" || lesson.kind === "balet";
+  return (
+    lesson.kind === "taekwondo" ||
+    lesson.kind === "balet" ||
+    isEarlyStage(lesson)
+  );
 }
 
 function addEscortSlot(
@@ -726,13 +777,15 @@ export function escortSlotsByLesson(lessons: Lesson[]) {
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
     addEscortSlot(slots, first.id, "start");
-    addEscortSlot(slots, last.id, "end");
+    if (isEarlyStage(last)) addEscortSlot(slots, last.id, "earlystage");
+    else addEscortSlot(slots, last.id, "end");
     const lastSchool = [...sorted].reverse().find((lesson) => !isAfterSchool(lesson));
     if (
       lastSchool &&
       lastSchool.id !== last.id &&
       !isPoolLesson(lastSchool) &&
-      !isZdwLesson(lastSchool)
+      !isZdwLesson(lastSchool) &&
+      !isEarlyStage(lastSchool)
     ) {
       addEscortSlot(slots, lastSchool.id, "school");
     }
@@ -741,6 +794,7 @@ export function escortSlotsByLesson(lessons: Lesson[]) {
       if (existing.includes("end")) continue;
       if (isPoolLesson(lesson)) addEscortSlot(slots, lesson.id, "basen");
       if (isZdwLesson(lesson)) addEscortSlot(slots, lesson.id, "zdw");
+      if (isEarlyStage(lesson)) addEscortSlot(slots, lesson.id, "earlystage");
     }
   }
   return slots;
