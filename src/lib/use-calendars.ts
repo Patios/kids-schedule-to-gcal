@@ -29,6 +29,11 @@ export type LessonPatch = Partial<
   Pick<Lesson, "weekday" | "start" | "end" | "title" | "kind" | "room" | "teacher" | "location" | "note">
 >;
 
+export type LessonState = {
+  patch?: LessonPatch;
+  deleted: boolean;
+};
+
 type StoredState = {
   hiddenBuiltin: string[];
   imported: Omit<ViewCalendar, "builtin">[];
@@ -306,6 +311,29 @@ export function useCalendars() {
     });
   }, []);
 
+  const lessonState = useCallback(
+    (id: string): LessonState => ({
+      patch: stored.lessonPatches[id] ? { ...stored.lessonPatches[id] } : undefined,
+      deleted: stored.deletedLessonIds.includes(id),
+    }),
+    [stored.deletedLessonIds, stored.lessonPatches],
+  );
+
+  const restoreLessonState = useCallback((id: string, state: LessonState) => {
+    setStored((current) => {
+      const lessonPatches = { ...current.lessonPatches };
+      if (state.patch) lessonPatches[id] = state.patch;
+      else delete lessonPatches[id];
+      return {
+        ...current,
+        lessonPatches,
+        deletedLessonIds: state.deleted
+          ? [...new Set([...current.deletedLessonIds, id])]
+          : current.deletedLessonIds.filter((lessonId) => lessonId !== id),
+      };
+    });
+  }, []);
+
   const isModified = useCallback(
     (id: string) => Boolean(stored.lessonPatches[id]),
     [stored.lessonPatches],
@@ -350,6 +378,8 @@ export function useCalendars() {
     updateLesson,
     restoreLesson,
     deleteLesson,
+    lessonState,
+    restoreLessonState,
     isModified,
     escortMarks: stored.escortMarks,
     cycleEscort,

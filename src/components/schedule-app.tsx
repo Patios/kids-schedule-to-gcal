@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { CalendarPlus, ChevronDown, Download, RefreshCw, Upload, X } from "lucide-react";
+import { CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, Download, RefreshCw, RotateCcw, Upload, X } from "lucide-react";
 import { LessonEditor } from "@/components/lesson-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnlockGate } from "@/components/unlock-gate";
 import { WeekBoard } from "@/components/week-board";
-import { useCalendars, type LessonPatch, type ViewCalendar } from "@/lib/use-calendars";
-import { SCHOOL_YEAR, type Lesson } from "@/lib/schedule";
+import { useCalendars, type LessonPatch, type LessonState, type ViewCalendar } from "@/lib/use-calendars";
+import { SCHOOL_YEAR, WEEKDAYS, type Lesson, type Weekday } from "@/lib/schedule";
 
 function asset(path: string) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -41,6 +41,162 @@ function namesMap(calendars: ViewCalendar[]) {
   return Object.fromEntries(calendars.map((calendar) => [calendar.id, calendar.name]));
 }
 
+function planningDay(now = new Date()): { day: Weekday; upcoming: boolean } {
+  const weekday = now.getDay();
+  if (weekday >= 1 && weekday <= 5) return { day: WEEKDAYS[weekday - 1].id, upcoming: false };
+  return { day: "MO", upcoming: true };
+}
+
+function minutesOfDay(now: Date) {
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function lessonEndMinutes(lesson: Lesson) {
+  const [hour, minute] = lesson.end.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function LessonSlider({
+  lessons,
+  names,
+  nextId,
+  label,
+}: {
+  lessons: Lesson[];
+  names: Record<string, string>;
+  nextId?: string;
+  label: string;
+}) {
+  const scrollerRef = useRef<HTMLOListElement>(null);
+  const [edges, setEdges] = useState({ prev: false, next: false });
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    const updateEdges = () => {
+      const prev = el.scrollLeft > 4;
+      const next = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+      setEdges((current) => (current.prev === prev && current.next === next ? current : { prev, next }));
+    };
+
+    if (nextId) {
+      const target = el.querySelector<HTMLElement>(`[data-lesson="${CSS.escape(nextId)}"]`);
+      if (target) el.scrollLeft = Math.max(0, target.offsetLeft - 8);
+    }
+
+    updateEdges();
+    const observer = new ResizeObserver(updateEdges);
+    observer.observe(el);
+    el.addEventListener("scroll", updateEdges, { passive: true });
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("scroll", updateEdges);
+    };
+  }, [lessons, nextId]);
+
+  function slide(direction: -1 | 1) {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const card = el.querySelector("li");
+    const step = (card?.getBoundingClientRect().width ?? el.clientWidth * 0.8) + 8;
+    el.scrollBy({ left: direction * step, behavior: "smooth" });
+  }
+
+  const showControls = edges.prev || edges.next;
+
+  return (
+    <div className="mt-3">
+      <ol
+        ref={scrollerRef}
+        className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] xl:flex-wrap xl:overflow-visible xl:snap-none [&::-webkit-scrollbar]:hidden"
+        aria-label={label}
+      >
+        {lessons.map((lesson) => (
+          <li
+            key={lesson.id}
+            data-lesson={lesson.id}
+            className={`w-[min(16rem,78%)] shrink-0 snap-start rounded-lg px-3 py-2 text-sm sm:w-44 xl:w-auto xl:min-w-36 xl:shrink ${
+              lesson.id === nextId ? "bg-background ring-1 ring-foreground/15" : "bg-muted"
+            }`}
+          >
+            <p className="font-medium tabular-nums">{lesson.start}–{lesson.end}</p>
+            <p className="truncate text-muted-foreground">{names[lesson.child] ?? ""} · {lesson.title}</p>
+          </li>
+        ))}
+      </ol>
+      {showControls ? (
+        <div className="mt-2 flex justify-end gap-1 xl:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Poprzednie zajęcia"
+            disabled={!edges.prev}
+            onClick={() => slide(-1)}
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Następne zajęcia"
+            disabled={!edges.next}
+            onClick={() => slide(1)}
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TodaySummary({ lessons, names }: { lessons: Lesson[]; names: Record<string, string> }) {
+  const [plan, setPlan] = useState<{ day: Weekday; upcoming: boolean } | null>(null);
+
+  useEffect(() => {
+    setPlan(planningDay());
+  }, []);
+
+  if (!plan) return null;
+
+  const meta = WEEKDAYS.find((item) => item.id === plan.day)!;
+  const dayLessons = lessons
+    .filter((lesson) => lesson.weekday === plan.day)
+    .sort((a, b) => a.start.localeCompare(b.start));
+  const next = plan.upcoming
+    ? dayLessons[0]
+    : dayLessons.find((lesson) => lessonEndMinutes(lesson) >= minutesOfDay(new Date()));
+  const heading = plan.upcoming ? `Najbliższy dzień · ${meta.label}` : `Dzisiaj · ${meta.label}`;
+
+  return (
+    <section className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm sm:px-5" aria-label={`Plan na ${meta.label}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-semibold">{heading}</h2>
+        <p className="text-sm text-muted-foreground">
+          {next
+            ? `Najbliżej: ${names[next.child] ?? ""} · ${next.title} (${next.start})`
+            : dayLessons.length > 0
+              ? "Dzisiejsze zajęcia już się skończyły."
+              : "Brak zajęć."}
+        </p>
+      </div>
+      {dayLessons.length > 0 ? (
+        <LessonSlider
+          lessons={dayLessons}
+          names={names}
+          nextId={next?.id}
+          label={plan.upcoming ? `Zajęcia: ${meta.label}` : "Dzisiejsze zajęcia"}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+type UndoAction = { id: string; state: LessonState; label: string };
+
 export function ScheduleApp() {
   const {
     calendars,
@@ -49,6 +205,8 @@ export function ScheduleApp() {
     updateLesson,
     restoreLesson,
     deleteLesson,
+    lessonState,
+    restoreLessonState,
     isModified,
     escortMarks,
     cycleEscort,
@@ -57,11 +215,29 @@ export function ScheduleApp() {
   } = useCalendars();
   const [tab, setTab] = useState("all");
   const [notice, setNotice] = useState<string | null>(null);
+  const [undo, setUndo] = useState<UndoAction | null>(null);
   const [editing, setEditing] = useState<Lesson | null>(null);
   const [refreshingEscort, setRefreshingEscort] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const names = namesMap(calendars);
   const allLessons = calendars.flatMap((calendar) => calendar.lessons);
+
+  useEffect(() => {
+    if (!undo) return;
+    const timer = window.setTimeout(() => setUndo(null), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [undo]);
+
+  function rememberUndo(id: string, label: string) {
+    setUndo({ id, state: lessonState(id), label });
+  }
+
+  function undoLastAction() {
+    if (!undo) return;
+    restoreLessonState(undo.id, undo.state);
+    setNotice("Cofnięto ostatnią zmianę.");
+    setUndo(null);
+  }
 
   useEffect(() => {
     if (tab === "all" && calendars.length < 2) {
@@ -110,6 +286,7 @@ export function ScheduleApp() {
 
   function onSave(patch: LessonPatch) {
     if (!editing) return;
+    rememberUndo(editing.id, "Cofnij zapis zajęć");
     updateLesson(editing.id, patch);
     setEditing(null);
     setNotice("Zapisano zmiany zajęć.");
@@ -117,6 +294,7 @@ export function ScheduleApp() {
 
   function onRestore() {
     if (!editing) return;
+    rememberUndo(editing.id, "Cofnij przywrócenie oryginału");
     restoreLesson(editing.id);
     setEditing(null);
     setNotice("Przywrócono oryginalne zajęcia.");
@@ -124,6 +302,7 @@ export function ScheduleApp() {
 
   function onDelete() {
     if (!editing) return;
+    rememberUndo(editing.id, "Przywróć usunięte zajęcia");
     deleteLesson(editing.id);
     setEditing(null);
     setNotice("Usunięto zajęcia z planu.");
@@ -152,8 +331,15 @@ export function ScheduleApp() {
         Kółko na pierwszej i ostatniej lekcji, na basenie, po ZDW i po EarlyStage oznacza, kto odprowadza / odbiera
         {escortOnServer === true
           ? " i zapisuje się na serwerze."
-          : "."}
+            : "."}
       </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Odprowadzenie / odbiór:</span>
+        <span className="inline-flex items-center gap-1"><i className="size-2.5 rounded-full bg-green-500" /> zielony</span>
+        <span className="inline-flex items-center gap-1"><i className="size-2.5 rounded-full bg-red-500" /> czerwony</span>
+        <span className="inline-flex items-center gap-1"><i className="size-2.5 rounded-full bg-stone-400" /> EarlyStage</span>
+        <span>Dotknij kółka, aby zmienić status.</span>
+      </div>
       <div>
         <Button
           type="button"
@@ -173,6 +359,7 @@ export function ScheduleApp() {
         showChild={showChild}
         onOpen={setEditing}
         onMove={(id, next) => {
+          rememberUndo(id, "Cofnij przesunięcie");
           updateLesson(id, next);
           setNotice("Przesunięto zajęcia.");
         }}
@@ -203,6 +390,8 @@ export function ScheduleApp() {
               ))}
             </div>
           </header>
+
+          {calendars.length > 0 ? <TodaySummary lessons={allLessons} names={names} /> : null}
 
           <details className="group rounded-xl border bg-card text-card-foreground shadow-sm">
             <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-semibold sm:px-6 sm:py-4 [&::-webkit-details-marker]:hidden">
@@ -323,8 +512,16 @@ export function ScheduleApp() {
                   Importuj ICS
                 </Button>
               </div>
-              {notice ? (
-                <p className="text-sm text-muted-foreground">{notice}</p>
+              {notice || undo ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" role="status">
+                  {notice ? <p>{notice}</p> : null}
+                  {undo ? (
+                    <Button type="button" variant="outline" size="sm" onClick={undoLastAction}>
+                      <RotateCcw />
+                      {undo.label}
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
               {calendars.length > 1 ? (
                 <TabsContent value="all" className="mt-4 space-y-4">
