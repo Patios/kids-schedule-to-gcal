@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnlockGate } from "@/components/unlock-gate";
 import { WeekBoard } from "@/components/week-board";
 import { useCalendars, type LessonPatch, type LessonState, type ViewCalendar } from "@/lib/use-calendars";
-import { SCHOOL_YEAR, WEEKDAYS, type Lesson, type Weekday } from "@/lib/schedule";
+import { SCHOOL_YEAR, WEEKDAYS, toMin, type Lesson, type Weekday } from "@/lib/schedule";
 
 function asset(path: string) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -59,12 +59,16 @@ function lessonEndMinutes(lesson: Lesson) {
 function LessonSlider({
   lessons,
   names,
-  nextId,
+  focusId,
+  currentId,
   label,
 }: {
   lessons: Lesson[];
   names: Record<string, string>;
-  nextId?: string;
+  /** The card brought into view when this strip opens. */
+  focusId?: string;
+  /** A lesson that is in progress right now. */
+  currentId?: string;
   label: string;
 }) {
   const scrollerRef = useRef<HTMLOListElement>(null);
@@ -80,8 +84,8 @@ function LessonSlider({
       setEdges((current) => (current.prev === prev && current.next === next ? current : { prev, next }));
     };
 
-    if (nextId) {
-      const target = el.querySelector<HTMLElement>(`[data-lesson="${CSS.escape(nextId)}"]`);
+    if (focusId) {
+      const target = el.querySelector<HTMLElement>(`[data-lesson="${CSS.escape(focusId)}"]`);
       if (target) el.scrollLeft = Math.max(0, target.offsetLeft - 8);
     }
 
@@ -93,7 +97,7 @@ function LessonSlider({
       observer.disconnect();
       el.removeEventListener("scroll", updateEdges);
     };
-  }, [lessons, nextId]);
+  }, [lessons, focusId]);
 
   function slide(direction: -1 | 1) {
     const el = scrollerRef.current;
@@ -117,10 +121,21 @@ function LessonSlider({
             key={lesson.id}
             data-lesson={lesson.id}
             className={`w-[min(16rem,78%)] shrink-0 snap-start rounded-lg px-3 py-2 text-sm sm:w-44 xl:w-auto xl:min-w-36 xl:shrink ${
-              lesson.id === nextId ? "bg-background ring-1 ring-foreground/15" : "bg-muted"
+              lesson.id === currentId
+                ? "bg-green-100 ring-2 ring-green-500 shadow-sm dark:bg-green-950/50 dark:ring-green-400"
+                : lesson.id === focusId
+                  ? "bg-background ring-1 ring-foreground/15"
+                  : "bg-muted"
             }`}
           >
-            <p className="font-medium tabular-nums">{lesson.start}–{lesson.end}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium tabular-nums">{lesson.start}–{lesson.end}</p>
+              {lesson.id === currentId ? (
+                <span className="rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  Teraz
+                </span>
+              ) : null}
+            </div>
             <p className="truncate text-muted-foreground">{names[lesson.child] ?? ""} · {lesson.title}</p>
           </li>
         ))}
@@ -155,20 +170,32 @@ function LessonSlider({
 
 function TodaySummary({ lessons, names }: { lessons: Lesson[]; names: Record<string, string> }) {
   const [plan, setPlan] = useState<{ day: Weekday; upcoming: boolean } | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
-    setPlan(planningDay());
+    const refresh = () => {
+      const date = new Date();
+      setNow(date);
+      setPlan(planningDay(date));
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 30_000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  if (!plan) return null;
+  if (!plan || !now) return null;
 
   const meta = WEEKDAYS.find((item) => item.id === plan.day)!;
   const dayLessons = lessons
     .filter((lesson) => lesson.weekday === plan.day)
     .sort((a, b) => a.start.localeCompare(b.start));
+  const nowMinutes = minutesOfDay(now);
+  const current = plan.upcoming
+    ? undefined
+    : dayLessons.find((lesson) => toMin(lesson.start) <= nowMinutes && nowMinutes < lessonEndMinutes(lesson));
   const next = plan.upcoming
     ? dayLessons[0]
-    : dayLessons.find((lesson) => lessonEndMinutes(lesson) >= minutesOfDay(new Date()));
+    : current ?? dayLessons.find((lesson) => lessonEndMinutes(lesson) > nowMinutes);
   const heading = plan.upcoming ? `Najbliższy dzień · ${meta.label}` : `Dzisiaj · ${meta.label}`;
 
   return (
@@ -176,8 +203,10 @@ function TodaySummary({ lessons, names }: { lessons: Lesson[]; names: Record<str
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="font-semibold">{heading}</h2>
         <p className="text-sm text-muted-foreground">
-          {next
-            ? `Najbliżej: ${names[next.child] ?? ""} · ${next.title} (${next.start})`
+          {current
+            ? `Teraz: ${names[current.child] ?? ""} · ${current.title} (${current.start}–${current.end})`
+            : next
+              ? `Najbliżej: ${names[next.child] ?? ""} · ${next.title} (${next.start})`
             : dayLessons.length > 0
               ? "Dzisiejsze zajęcia już się skończyły."
               : "Brak zajęć."}
@@ -187,7 +216,8 @@ function TodaySummary({ lessons, names }: { lessons: Lesson[]; names: Record<str
         <LessonSlider
           lessons={dayLessons}
           names={names}
-          nextId={next?.id}
+          focusId={current?.id ?? next?.id}
+          currentId={current?.id}
           label={plan.upcoming ? `Zajęcia: ${meta.label}` : "Dzisiejsze zajęcia"}
         />
       ) : null}

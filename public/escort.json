@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-01T15:39:30.153Z",
+  "updatedAt": "2026-10-06T11:09:01.977Z",
   "marks": {
     "natalka:TU:start": "green",
     "natalka:WE:start": "green",
@@ -29,6 +29,7 @@
     "michal:TU:earlystage": "green",
     "natalka:WE:school": "green",
     "michal:FR:start": "green",
-    "natalka:FR:start": "green"
+    "natalka:FR:start": "green",
+    "natalka:WE:earlystage": "green"
   }
 }
