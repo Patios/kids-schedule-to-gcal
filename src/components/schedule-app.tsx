@@ -56,19 +56,31 @@ function lessonEndMinutes(lesson: Lesson) {
   return hour * 60 + minute;
 }
 
+type CurrentTone = "green" | "orange";
+
+const CURRENT_CARD: Record<CurrentTone, string> = {
+  green: "bg-green-100 ring-2 ring-green-500 shadow-sm dark:bg-green-950/50 dark:ring-green-400",
+  orange: "bg-orange-100 ring-2 ring-orange-500 shadow-sm dark:bg-orange-950/50 dark:ring-orange-400",
+};
+
+const CURRENT_BADGE: Record<CurrentTone, string> = {
+  green: "bg-green-500 text-white",
+  orange: "bg-orange-500 text-white",
+};
+
 function LessonSlider({
   lessons,
   names,
   focusId,
-  currentId,
+  currentTones,
   label,
 }: {
   lessons: Lesson[];
   names: Record<string, string>;
   /** The card brought into view when this strip opens. */
   focusId?: string;
-  /** A lesson that is in progress right now. */
-  currentId?: string;
+  /** Lessons in progress, colored per child. */
+  currentTones: Record<string, CurrentTone>;
   label: string;
 }) {
   const scrollerRef = useRef<HTMLOListElement>(null);
@@ -121,8 +133,8 @@ function LessonSlider({
             key={lesson.id}
             data-lesson={lesson.id}
             className={`w-[min(16rem,78%)] shrink-0 snap-start rounded-lg px-3 py-2 text-sm sm:w-44 xl:w-auto xl:min-w-36 xl:shrink ${
-              lesson.id === currentId
-                ? "bg-green-100 ring-2 ring-green-500 shadow-sm dark:bg-green-950/50 dark:ring-green-400"
+              currentTones[lesson.id]
+                ? CURRENT_CARD[currentTones[lesson.id]]
                 : lesson.id === focusId
                   ? "bg-background ring-1 ring-foreground/15"
                   : "bg-muted"
@@ -130,8 +142,8 @@ function LessonSlider({
           >
             <div className="flex items-center justify-between gap-2">
               <p className="font-medium tabular-nums">{lesson.start}–{lesson.end}</p>
-              {lesson.id === currentId ? (
-                <span className="rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              {currentTones[lesson.id] ? (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${CURRENT_BADGE[currentTones[lesson.id]]}`}>
                   Teraz
                 </span>
               ) : null}
@@ -190,21 +202,27 @@ function TodaySummary({ lessons, names }: { lessons: Lesson[]; names: Record<str
     .filter((lesson) => lesson.weekday === plan.day)
     .sort((a, b) => a.start.localeCompare(b.start));
   const nowMinutes = minutesOfDay(now);
-  const current = plan.upcoming
-    ? undefined
-    : dayLessons.find((lesson) => toMin(lesson.start) <= nowMinutes && nowMinutes < lessonEndMinutes(lesson));
+  const currentLessons = plan.upcoming
+    ? []
+    : dayLessons.filter((lesson) => toMin(lesson.start) <= nowMinutes && nowMinutes < lessonEndMinutes(lesson));
+  const currentTones = Object.fromEntries(
+    currentLessons.map((lesson) => [lesson.id, lesson.child === "natalka" ? "orange" : "green"]),
+  ) as Record<string, CurrentTone>;
   const next = plan.upcoming
     ? dayLessons[0]
-    : current ?? dayLessons.find((lesson) => lessonEndMinutes(lesson) > nowMinutes);
+    : currentLessons[0] ?? dayLessons.find((lesson) => lessonEndMinutes(lesson) > nowMinutes);
   const heading = plan.upcoming ? `Najbliższy dzień · ${meta.label}` : `Dzisiaj · ${meta.label}`;
+  const nowLabel = currentLessons
+    .map((lesson) => `${names[lesson.child] ?? ""} · ${lesson.title} (${lesson.start}–${lesson.end})`)
+    .join(" oraz ");
 
   return (
     <section className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm sm:px-5" aria-label={`Plan na ${meta.label}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="font-semibold">{heading}</h2>
         <p className="text-sm text-muted-foreground">
-          {current
-            ? `Teraz: ${names[current.child] ?? ""} · ${current.title} (${current.start}–${current.end})`
+          {currentLessons.length > 0
+            ? `Teraz: ${nowLabel}`
             : next
               ? `Najbliżej: ${names[next.child] ?? ""} · ${next.title} (${next.start})`
             : dayLessons.length > 0
@@ -216,8 +234,8 @@ function TodaySummary({ lessons, names }: { lessons: Lesson[]; names: Record<str
         <LessonSlider
           lessons={dayLessons}
           names={names}
-          focusId={current?.id ?? next?.id}
-          currentId={current?.id}
+          focusId={currentLessons[0]?.id ?? next?.id}
+          currentTones={currentTones}
           label={plan.upcoming ? `Zajęcia: ${meta.label}` : "Dzisiejsze zajęcia"}
         />
       ) : null}
