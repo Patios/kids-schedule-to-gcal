@@ -607,7 +607,7 @@ export function WeekBoard({
   return (
     <>
       <div className="md:hidden">
-        <div className="sticky top-0 z-20 -mx-1 mb-3 bg-[oklch(0.985_0.01_90)]/95 px-1 pt-1 pb-2 backdrop-blur-sm">
+        <div className="sticky top-0 z-20 -mx-1 mb-3 bg-[oklch(0.985_0.01_90)]/95 px-1 pt-1 pb-2 backdrop-blur-sm dark:bg-background/95">
           <div className="grid grid-cols-5 gap-1">
             {WEEKDAYS.map((day) => {
               const active = day.id === mobileDay;

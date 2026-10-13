@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,8 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pl">
+    <html lang="pl" suppressHydrationWarning>
       <body className={`${geistSans.variable} font-sans antialiased`}>
+        <Script id="theme" strategy="beforeInteractive">
+          {`try{if(localStorage.getItem("plan-zajec-theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`}
+        </Script>
         {children}
       </body>
     </html>

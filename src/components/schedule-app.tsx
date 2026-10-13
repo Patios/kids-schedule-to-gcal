@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, Download, RefreshCw, RotateCcw, Upload, X } from "lucide-react";
+import { CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, Download, Moon, RefreshCw, RotateCcw, Sun, Upload, X } from "lucide-react";
 import { LessonEditor } from "@/components/lesson-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,43 @@ import { UnlockGate } from "@/components/unlock-gate";
 import { WeekBoard } from "@/components/week-board";
 import { useCalendars, type LessonPatch, type LessonState, type ViewCalendar } from "@/lib/use-calendars";
 import { SCHOOL_YEAR, WEEKDAYS, toMin, type Lesson, type Weekday } from "@/lib/schedule";
+
+const THEME_KEY = "plan-zajec-theme";
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+  }, []);
+
+  function toggle() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.classList.toggle("dark", next === "dark");
+    localStorage.setItem(THEME_KEY, next);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content",
+      next === "dark" ? "#252525" : "#f7f4ee",
+    );
+    setTheme(next);
+  }
+
+  const dark = theme === "dark";
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={toggle}
+      aria-pressed={dark}
+      aria-label={dark ? "Włącz tryb jasny" : "Włącz tryb ciemny"}
+    >
+      {dark ? <Sun /> : <Moon />}
+      {dark ? "Jasny" : "Ciemny"}
+    </Button>
+  );
+}
 
 function asset(path: string) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -418,7 +455,7 @@ export function ScheduleApp() {
   );
 
   return (
-    <div className="min-h-screen bg-[oklch(0.985_0.01_90)]">
+    <div className="min-h-screen bg-[oklch(0.985_0.01_90)] dark:bg-background">
       <UnlockGate>
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 sm:px-6 sm:py-8 sm:gap-6">
           <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -430,7 +467,8 @@ export function ScheduleApp() {
                 {heading(calendars)}
               </h1>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <ThemeToggle />
               {calendars.map((calendar) => (
                 <Badge key={calendar.id} variant="secondary">
                   {calendar.label}

@@ -137,19 +137,19 @@ export function kindClass(kind: string) {
 }
 
 export const KIND_CLASS: Record<LessonKind, string> = {
-  wf: "bg-orange-100 text-orange-950 border-orange-200",
-  edwcz: "bg-emerald-100 text-emerald-950 border-emerald-200",
-  angielski: "bg-sky-100 text-sky-950 border-sky-200",
-  informatyka: "bg-slate-100 text-slate-950 border-slate-200",
-  muzyka: "bg-violet-100 text-violet-950 border-violet-200",
-  plastyka: "bg-amber-100 text-amber-950 border-amber-200",
-  religia: "bg-purple-100 text-purple-950 border-purple-200",
-  zdw: "bg-teal-100 text-teal-950 border-teal-200",
-  basen: "bg-cyan-100 text-cyan-950 border-cyan-200",
-  extra: "bg-stone-100 text-stone-950 border-stone-300",
-  taekwondo: "bg-red-100 text-red-950 border-red-200",
-  balet: "bg-pink-100 text-pink-950 border-pink-200",
-  earlystage: "bg-stone-200 text-stone-950 border-stone-400",
+  wf: "bg-orange-100 text-orange-950 border-orange-200 dark:bg-orange-950 dark:text-orange-100 dark:border-orange-800",
+  edwcz: "bg-emerald-100 text-emerald-950 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-100 dark:border-emerald-800",
+  angielski: "bg-sky-100 text-sky-950 border-sky-200 dark:bg-sky-950 dark:text-sky-100 dark:border-sky-800",
+  informatyka: "bg-slate-100 text-slate-950 border-slate-200 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700",
+  muzyka: "bg-violet-100 text-violet-950 border-violet-200 dark:bg-violet-950 dark:text-violet-100 dark:border-violet-800",
+  plastyka: "bg-amber-100 text-amber-950 border-amber-200 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800",
+  religia: "bg-purple-100 text-purple-950 border-purple-200 dark:bg-purple-950 dark:text-purple-100 dark:border-purple-800",
+  zdw: "bg-teal-100 text-teal-950 border-teal-200 dark:bg-teal-950 dark:text-teal-100 dark:border-teal-800",
+  basen: "bg-cyan-100 text-cyan-950 border-cyan-200 dark:bg-cyan-950 dark:text-cyan-100 dark:border-cyan-800",
+  extra: "bg-stone-100 text-stone-950 border-stone-300 dark:bg-stone-900 dark:text-stone-100 dark:border-stone-700",
+  taekwondo: "bg-red-100 text-red-950 border-red-200 dark:bg-red-950 dark:text-red-100 dark:border-red-800",
+  balet: "bg-pink-100 text-pink-950 border-pink-200 dark:bg-pink-950 dark:text-pink-100 dark:border-pink-800",
+  earlystage: "bg-stone-200 text-stone-950 border-stone-400 dark:bg-stone-800 dark:text-stone-100 dark:border-stone-600",
 };
 
 const MICHAL: Lesson[] = [
