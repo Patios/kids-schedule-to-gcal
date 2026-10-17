@@ -41,6 +41,51 @@ export const SCHOOL_YEAR = {
   end: "2027-06-25",
 };
 
+export function formatISODate(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Poniedziałek–piątek tygodnia pokazywanego na planie. W weekend to najbliższy tydzień. */
+export function visibleWeekDates(now = new Date()): Record<Weekday, string> {
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setHours(12, 0, 0, 0);
+  const offset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
+  monday.setDate(monday.getDate() + offset);
+  const ids: Weekday[] = ["MO", "TU", "WE", "TH", "FR"];
+  return Object.fromEntries(
+    ids.map((id, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      return [id, formatISODate(date)];
+    }),
+  ) as Record<Weekday, string>;
+}
+
+function skipDate(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+export function formatSkipLabel(iso: string) {
+  return new Intl.DateTimeFormat("pl-PL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(skipDate(iso));
+}
+
+/** Krótka data na przycisku, bez dnia tygodnia. */
+export function formatSkipDate(iso: string) {
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "numeric",
+    month: "long",
+  }).format(skipDate(iso));
+}
+
 export const WEEKDAYS: { id: Weekday; label: string; short: string }[] = [
   { id: "MO", label: "Poniedziałek", short: "Pn" },
   { id: "TU", label: "Wtorek", short: "Wt" },

@@ -2,18 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseIcs, type ParsedCalendar } from "./parse-ics";
-import { loadEscortPayload, saveEscortMarks } from "./escort-sync";
+import { loadEscortPayload, saveEscortMarks, type SkippedLessons } from "./escort-sync";
 import {
   CHILDREN,
   escortKey,
   nextEscortColor,
   lessonsFor,
+  visibleWeekDates,
   type EscortColor,
   type EscortSlot,
   type Lesson,
 } from "./schedule";
 
 const STORAGE_KEY = "plan-zajec-visible-calendars-v1";
+const DELETIONS_MIGRATED_KEY = "plan-zajec-deletions-synced-v1";
+const DELETIONS_PENDING_KEY = "plan-zajec-deletions-pending-v1";
 
 export type ViewCalendar = {
   id: string;
@@ -32,6 +35,7 @@ export type LessonPatch = Partial<
 export type LessonState = {
   patch?: LessonPatch;
   deleted: boolean;
+  skippedDates: string[];
 };
 
 type StoredState = {
@@ -39,6 +43,7 @@ type StoredState = {
   imported: Omit<ViewCalendar, "builtin">[];
   lessonPatches: Record<string, LessonPatch>;
   deletedLessonIds: string[];
+  skippedLessons: SkippedLessons;
   escortMarks: Record<string, EscortColor>;
 };
 
@@ -71,6 +76,7 @@ function emptyStored(): StoredState {
     imported: [],
     lessonPatches: {},
     deletedLessonIds: [],
+    skippedLessons: {},
     escortMarks: {},
   };
 }
@@ -85,10 +91,51 @@ function readStored(): StoredState {
       imported: parsed.imported ?? [],
       lessonPatches: parsed.lessonPatches ?? {},
       deletedLessonIds: parsed.deletedLessonIds ?? [],
+      skippedLessons: parsed.skippedLessons ?? {},
       escortMarks: parsed.escortMarks ?? {},
     };
   } catch {
     return emptyStored();
+  }
+}
+
+function unionIds(left: string[], right: string[]) {
+  return [...new Set([...left, ...right])];
+}
+
+function sameIds(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  const ids = new Set(left);
+  return right.every((id) => ids.has(id));
+}
+
+function unionSkips(left: SkippedLessons, right: SkippedLessons): SkippedLessons {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  const merged: SkippedLessons = {};
+  for (const key of keys) {
+    const dates = unionIds(left[key] ?? [], right[key] ?? []);
+    if (dates.length) merged[key] = dates;
+  }
+  return merged;
+}
+
+function sameSkips(left: SkippedLessons, right: SkippedLessons) {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (!sameIds(left[key] ?? [], right[key] ?? [])) return false;
+  }
+  return true;
+}
+
+function withoutSkipped(lessons: Lesson[], skipped: SkippedLessons, week: Record<Lesson["weekday"], string>) {
+  return lessons.filter((lesson) => !skipped[lesson.id]?.includes(week[lesson.weekday]));
+}
+
+function flagOn(key: string) {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -168,22 +215,56 @@ export function useCalendars() {
   const saveTimer = useRef<number>(0);
   const remoteReady = useRef(false);
   const skipFocusRefetch = useRef(false);
+  const deletedDirty = useRef(false);
+  const pendingDeleted = useRef<string[] | null>(null);
+  const pendingSkipped = useRef<SkippedLessons | null>(null);
+  const persistGen = useRef(0);
+  const [weekDates, setWeekDates] = useState<Record<Lesson["weekday"], string> | null>(null);
 
-  const persistEscort = useCallback((marks: Record<string, EscortColor>) => {
-    window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => {
-      skipFocusRefetch.current = true;
-      saveEscortMarks(marks)
-        .then((saved) => {
-          setStored((current) => ({ ...current, escortMarks: saved.marks }));
-          setEscortOnServer(true);
-        })
-        .catch(() => setEscortOnServer(false))
-        .finally(() => {
-          skipFocusRefetch.current = false;
-        });
-    }, 400);
-  }, []);
+  const persistShared = useCallback(
+    (
+      marks: Record<string, EscortColor>,
+      deletedLessonIds: string[],
+      skippedLessons: SkippedLessons,
+    ) => {
+      const gen = ++persistGen.current;
+      deletedDirty.current = true;
+      try {
+        localStorage.setItem(DELETIONS_PENDING_KEY, "1");
+      } catch {
+        /* private mode */
+      }
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => {
+        skipFocusRefetch.current = true;
+        saveEscortMarks(marks, deletedLessonIds, skippedLessons)
+          .then((saved) => {
+            if (persistGen.current !== gen) return;
+            deletedDirty.current = false;
+            pendingDeleted.current = null;
+            pendingSkipped.current = null;
+            try {
+              localStorage.removeItem(DELETIONS_PENDING_KEY);
+              localStorage.setItem(DELETIONS_MIGRATED_KEY, "1");
+            } catch {
+              /* private mode */
+            }
+            setStored((current) => ({
+              ...current,
+              escortMarks: saved.marks,
+              deletedLessonIds: saved.deletedLessonIds,
+              skippedLessons: saved.skippedLessons,
+            }));
+            setEscortOnServer(true);
+          })
+          .catch(() => setEscortOnServer(false))
+          .finally(() => {
+            if (persistGen.current === gen) skipFocusRefetch.current = false;
+          });
+      }, 400);
+    },
+    [],
+  );
 
   const applyRemoteMarks = useCallback(async () => {
     const remote = await loadEscortPayload();
@@ -192,9 +273,12 @@ export function useCalendars() {
       setEscortOnServer(false);
       return false;
     }
+    const keepLocal = deletedDirty.current || flagOn(DELETIONS_PENDING_KEY);
     setStored((current) => ({
       ...current,
       escortMarks: remote.marks,
+      deletedLessonIds: keepLocal ? current.deletedLessonIds : remote.deletedLessonIds,
+      skippedLessons: keepLocal ? current.skippedLessons : remote.skippedLessons,
     }));
     setEscortOnServer(true);
     return true;
@@ -210,10 +294,44 @@ export function useCalendars() {
       const remote = await loadEscortPayload();
       if (cancelled) return;
       if (remote) {
-        setStored((current) => ({
-          ...current,
-          escortMarks: remote.marks,
-        }));
+        const migrated = flagOn(DELETIONS_MIGRATED_KEY);
+        let deletedLessonIds = remote.deletedLessonIds;
+        let skippedLessons = remote.skippedLessons;
+        setStored((current) => {
+          const changedDuringLoad =
+            !sameIds(current.deletedLessonIds, local.deletedLessonIds) ||
+            !sameSkips(current.skippedLessons, local.skippedLessons);
+          const pending = flagOn(DELETIONS_PENDING_KEY) || changedDuringLoad;
+          if (pending) {
+            deletedLessonIds = pendingDeleted.current ?? current.deletedLessonIds;
+            skippedLessons = pendingSkipped.current ?? current.skippedLessons;
+          } else if (!migrated) {
+            deletedLessonIds = unionIds(current.deletedLessonIds, remote.deletedLessonIds);
+            skippedLessons = unionSkips(current.skippedLessons, remote.skippedLessons);
+          } else {
+            deletedLessonIds = remote.deletedLessonIds;
+            skippedLessons = remote.skippedLessons;
+          }
+          return {
+            ...current,
+            escortMarks: remote.marks,
+            deletedLessonIds,
+            skippedLessons,
+          };
+        });
+        if (cancelled) return;
+        if (
+          !sameIds(deletedLessonIds, remote.deletedLessonIds) ||
+          !sameSkips(skippedLessons, remote.skippedLessons)
+        ) {
+          persistShared(remote.marks, deletedLessonIds, skippedLessons);
+        } else if (!migrated) {
+          try {
+            localStorage.setItem(DELETIONS_MIGRATED_KEY, "1");
+          } catch {
+            /* private mode */
+          }
+        }
         setEscortOnServer(true);
       } else {
         setStored((current) => ({
@@ -229,7 +347,7 @@ export function useCalendars() {
       cancelled = true;
       window.clearTimeout(saveTimer.current);
     };
-  }, []);
+  }, [persistShared]);
 
   useEffect(() => {
     function onFocus() {
@@ -250,7 +368,21 @@ export function useCalendars() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   }, [ready, escortSynced, stored]);
 
-  const calendars = useMemo(() => visibleFrom(stored), [stored]);
+  useEffect(() => {
+    const tick = () => setWeekDates(visibleWeekDates(new Date()));
+    tick();
+    const timer = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const calendars = useMemo(() => {
+    const visible = visibleFrom(stored);
+    if (!weekDates) return visible;
+    return visible.map((calendar) => ({
+      ...calendar,
+      lessons: withoutSkipped(calendar.lessons, stored.skippedLessons, weekDates),
+    }));
+  }, [stored, weekDates]);
 
   const remove = useCallback((id: string) => {
     setStored((current) => {
@@ -276,47 +408,93 @@ export function useCalendars() {
     });
   }, []);
 
+  const publishPlan = useCallback(
+    (current: StoredState, deletedLessonIds: string[], skippedLessons: SkippedLessons) => {
+      if (
+        sameIds(current.deletedLessonIds, deletedLessonIds) &&
+        sameSkips(current.skippedLessons, skippedLessons)
+      ) {
+        return;
+      }
+      pendingDeleted.current = deletedLessonIds;
+      pendingSkipped.current = skippedLessons;
+      deletedDirty.current = true;
+      try {
+        localStorage.setItem(DELETIONS_PENDING_KEY, "1");
+      } catch {
+        /* private mode */
+      }
+      if (remoteReady.current) {
+        persistShared(current.escortMarks, deletedLessonIds, skippedLessons);
+      }
+    },
+    [persistShared],
+  );
+
   const updateLesson = useCallback((id: string, patch: LessonPatch) => {
-    setStored((current) => ({
-      ...current,
-      lessonPatches: {
-        ...current.lessonPatches,
-        [id]: { ...current.lessonPatches[id], ...patch },
-      },
-      deletedLessonIds: current.deletedLessonIds.filter((lessonId) => lessonId !== id),
-    }));
-  }, []);
+    setStored((current) => {
+      const deletedLessonIds = current.deletedLessonIds.filter((lessonId) => lessonId !== id);
+      publishPlan(current, deletedLessonIds, current.skippedLessons);
+      return {
+        ...current,
+        lessonPatches: {
+          ...current.lessonPatches,
+          [id]: { ...current.lessonPatches[id], ...patch },
+        },
+        deletedLessonIds,
+      };
+    });
+  }, [publishPlan]);
 
   const restoreLesson = useCallback((id: string) => {
     setStored((current) => {
       const lessonPatches = { ...current.lessonPatches };
       delete lessonPatches[id];
+      const deletedLessonIds = current.deletedLessonIds.filter((lessonId) => lessonId !== id);
+      publishPlan(current, deletedLessonIds, current.skippedLessons);
       return {
         ...current,
         lessonPatches,
-        deletedLessonIds: current.deletedLessonIds.filter((lessonId) => lessonId !== id),
+        deletedLessonIds,
       };
     });
-  }, []);
+  }, [publishPlan]);
 
   const deleteLesson = useCallback((id: string) => {
     setStored((current) => {
       const lessonPatches = { ...current.lessonPatches };
       delete lessonPatches[id];
+      const deletedLessonIds = [...new Set([...current.deletedLessonIds, id])];
+      const skippedLessons = { ...current.skippedLessons };
+      delete skippedLessons[id];
+      publishPlan(current, deletedLessonIds, skippedLessons);
       return {
         ...current,
         lessonPatches,
-        deletedLessonIds: [...new Set([...current.deletedLessonIds, id])],
+        deletedLessonIds,
+        skippedLessons,
       };
     });
-  }, []);
+  }, [publishPlan]);
+
+  const skipLesson = useCallback((id: string, date: string) => {
+    setStored((current) => {
+      const skippedLessons = {
+        ...current.skippedLessons,
+        [id]: unionIds(current.skippedLessons[id] ?? [], [date]),
+      };
+      publishPlan(current, current.deletedLessonIds, skippedLessons);
+      return { ...current, skippedLessons };
+    });
+  }, [publishPlan]);
 
   const lessonState = useCallback(
     (id: string): LessonState => ({
       patch: stored.lessonPatches[id] ? { ...stored.lessonPatches[id] } : undefined,
       deleted: stored.deletedLessonIds.includes(id),
+      skippedDates: [...(stored.skippedLessons[id] ?? [])],
     }),
-    [stored.deletedLessonIds, stored.lessonPatches],
+    [stored.deletedLessonIds, stored.lessonPatches, stored.skippedLessons],
   );
 
   const restoreLessonState = useCallback((id: string, state: LessonState) => {
@@ -324,15 +502,21 @@ export function useCalendars() {
       const lessonPatches = { ...current.lessonPatches };
       if (state.patch) lessonPatches[id] = state.patch;
       else delete lessonPatches[id];
+      const deletedLessonIds = state.deleted
+        ? [...new Set([...current.deletedLessonIds, id])]
+        : current.deletedLessonIds.filter((lessonId) => lessonId !== id);
+      const skippedLessons = { ...current.skippedLessons };
+      if (state.skippedDates.length) skippedLessons[id] = [...state.skippedDates];
+      else delete skippedLessons[id];
+      publishPlan(current, deletedLessonIds, skippedLessons);
       return {
         ...current,
         lessonPatches,
-        deletedLessonIds: state.deleted
-          ? [...new Set([...current.deletedLessonIds, id])]
-          : current.deletedLessonIds.filter((lessonId) => lessonId !== id),
+        deletedLessonIds,
+        skippedLessons,
       };
     });
-  }, []);
+  }, [publishPlan]);
 
   const isModified = useCallback(
     (id: string) => Boolean(stored.lessonPatches[id]),
@@ -347,11 +531,13 @@ export function useCalendars() {
         const escortMarks = { ...current.escortMarks };
         if (next) escortMarks[key] = next;
         else delete escortMarks[key];
-        if (remoteReady.current) persistEscort(escortMarks);
+        if (remoteReady.current) {
+          persistShared(escortMarks, current.deletedLessonIds, current.skippedLessons);
+        }
         return { ...current, escortMarks };
       });
     },
-    [persistEscort],
+    [persistShared],
   );
 
   const addFromIcs = useCallback((text: string, filename?: string) => {
@@ -378,6 +564,8 @@ export function useCalendars() {
     updateLesson,
     restoreLesson,
     deleteLesson,
+    skipLesson,
+    weekDates,
     lessonState,
     restoreLessonState,
     isModified,

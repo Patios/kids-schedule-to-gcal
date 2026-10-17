@@ -1,8 +1,12 @@
 import type { EscortColor } from "./schedule";
 
+export type SkippedLessons = Record<string, string[]>;
+
 export type EscortPayload = {
   updatedAt: string | null;
   marks: Record<string, EscortColor>;
+  deletedLessonIds: string[];
+  skippedLessons: SkippedLessons;
 };
 
 function asset(path: string) {
@@ -118,7 +122,50 @@ function authHeaders(includeContentType: boolean, key: string): HeadersInit[] {
 }
 
 export function emptyEscortPayload(): EscortPayload {
-  return { updatedAt: null, marks: {} };
+  return { updatedAt: null, marks: {}, deletedLessonIds: [], skippedLessons: {} };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function freshSkipCutoff() {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() - 21);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function sanitizeSkippedLessons(raw: unknown): SkippedLessons {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const cutoff = freshSkipCutoff();
+  const skipped: SkippedLessons = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const id = key.trim();
+    if (!LESSON_ID.test(id) || !Array.isArray(value)) continue;
+    const dates: string[] = [];
+    for (const item of value) {
+      if (typeof item !== "string" || !ISO_DATE.test(item) || item < cutoff) continue;
+      if (!dates.includes(item)) dates.push(item);
+    }
+    if (dates.length) skipped[id] = dates;
+  }
+  return skipped;
+}
+
+const LESSON_ID = /^[a-z0-9-]{1,80}$/;
+
+export function sanitizeDeletedLessonIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const ids: string[] = [];
+  for (const value of raw) {
+    if (typeof value !== "string") continue;
+    const id = value.trim();
+    if (!LESSON_ID.test(id) || ids.includes(id)) continue;
+    ids.push(id);
+  }
+  return ids;
 }
 
 export function sanitizeEscortMarks(raw: unknown): Record<string, EscortColor> {
@@ -132,14 +179,27 @@ export function sanitizeEscortMarks(raw: unknown): Record<string, EscortColor> {
 
 export function parseEscortPayload(raw: unknown): EscortPayload {
   if (!raw || typeof raw !== "object") return emptyEscortPayload();
-  const data = raw as { record?: unknown; updatedAt?: unknown; marks?: unknown };
+  const data = raw as {
+    record?: unknown;
+    updatedAt?: unknown;
+    marks?: unknown;
+    deletedLessonIds?: unknown;
+    skippedLessons?: unknown;
+  };
   const source =
     data.record && typeof data.record === "object" && !Array.isArray(data.record)
-      ? (data.record as { updatedAt?: unknown; marks?: unknown })
+      ? (data.record as {
+          updatedAt?: unknown;
+          marks?: unknown;
+          deletedLessonIds?: unknown;
+          skippedLessons?: unknown;
+        })
       : data;
   return {
     updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : null,
     marks: sanitizeEscortMarks(source.marks),
+    deletedLessonIds: sanitizeDeletedLessonIds(source.deletedLessonIds),
+    skippedLessons: sanitizeSkippedLessons(source.skippedLessons),
   };
 }
 
@@ -168,14 +228,27 @@ export async function fetchCloudEscort(
 }
 
 export async function putCloudEscort(
-  marks: Record<string, EscortColor>,
+  data: {
+    marks: Record<string, EscortColor>;
+    deletedLessonIds?: string[];
+    skippedLessons?: SkippedLessons;
+  },
   overrides?: { url?: string; key?: string },
 ): Promise<EscortPayload | null> {
   const { url: remote, key } = await resolveCloud(overrides);
   if (!remote) return null;
+  let deletedLessonIds = data.deletedLessonIds;
+  let skippedLessons = data.skippedLessons;
+  if (deletedLessonIds === undefined || skippedLessons === undefined) {
+    const existing = await fetchCloudEscort(overrides);
+    if (deletedLessonIds === undefined) deletedLessonIds = existing?.deletedLessonIds ?? [];
+    if (skippedLessons === undefined) skippedLessons = existing?.skippedLessons ?? {};
+  }
   const payload: EscortPayload = {
     updatedAt: new Date().toISOString(),
-    marks: sanitizeEscortMarks(marks),
+    marks: sanitizeEscortMarks(data.marks),
+    deletedLessonIds: sanitizeDeletedLessonIds(deletedLessonIds),
+    skippedLessons: sanitizeSkippedLessons(skippedLessons),
   };
   const url = writeUrl(remote);
   const body = JSON.stringify(payload);
@@ -221,17 +294,42 @@ export async function loadEscortPayload(): Promise<EscortPayload | null> {
   }
 }
 
-export async function saveEscortMarks(marks: Record<string, EscortColor>) {
+export async function saveEscortMarks(
+  marks: Record<string, EscortColor>,
+  deletedLessonIds?: string[],
+  skippedLessons?: SkippedLessons,
+) {
   const payload: EscortPayload = {
     updatedAt: new Date().toISOString(),
     marks: sanitizeEscortMarks(marks),
+    deletedLessonIds:
+      deletedLessonIds === undefined ? [] : sanitizeDeletedLessonIds(deletedLessonIds),
+    skippedLessons:
+      skippedLessons === undefined ? {} : sanitizeSkippedLessons(skippedLessons),
   };
+  const wire: {
+    updatedAt: string | null;
+    marks: Record<string, EscortColor>;
+    deletedLessonIds?: string[];
+    skippedLessons?: SkippedLessons;
+  } = { updatedAt: payload.updatedAt, marks: payload.marks };
+  if (deletedLessonIds !== undefined) wire.deletedLessonIds = payload.deletedLessonIds;
+  if (skippedLessons !== undefined) wire.skippedLessons = payload.skippedLessons;
+  const body = JSON.stringify(wire);
+
+  const cloudBody: {
+    marks: Record<string, EscortColor>;
+    deletedLessonIds?: string[];
+    skippedLessons?: SkippedLessons;
+  } = { marks: payload.marks };
+  if (deletedLessonIds !== undefined) cloudBody.deletedLessonIds = payload.deletedLessonIds;
+  if (skippedLessons !== undefined) cloudBody.skippedLessons = payload.skippedLessons;
 
   if (isLocalHost()) {
     const response = await fetch(asset("/api/escort/"), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body,
     });
     if (!response.ok) {
       throw new Error(`escort save failed (${response.status})`);
@@ -239,13 +337,13 @@ export async function saveEscortMarks(marks: Record<string, EscortColor>) {
     return parseEscortPayload(await response.json());
   }
 
-  const cloud = await putCloudEscort(payload.marks);
+  const cloud = await putCloudEscort(cloudBody);
   if (cloud) return cloud;
 
   const response = await fetch(asset("/api/escort/"), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body,
   });
   if (!response.ok) {
     throw new Error(`escort save failed (${response.status})`);

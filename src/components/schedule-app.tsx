@@ -9,7 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnlockGate } from "@/components/unlock-gate";
 import { WeekBoard } from "@/components/week-board";
 import { useCalendars, type LessonPatch, type LessonState, type ViewCalendar } from "@/lib/use-calendars";
-import { SCHOOL_YEAR, WEEKDAYS, toMin, type Lesson, type Weekday } from "@/lib/schedule";
+import {
+  SCHOOL_YEAR,
+  WEEKDAYS,
+  formatSkipDate,
+  formatSkipLabel,
+  toMin,
+  visibleWeekDates,
+  type Lesson,
+  type Weekday,
+} from "@/lib/schedule";
 
 const THEME_KEY = "plan-zajec-theme";
 
@@ -290,6 +299,8 @@ export function ScheduleApp() {
     updateLesson,
     restoreLesson,
     deleteLesson,
+    skipLesson,
+    weekDates,
     lessonState,
     restoreLessonState,
     isModified,
@@ -390,7 +401,17 @@ export function ScheduleApp() {
     rememberUndo(editing.id, "Przywróć usunięte zajęcia");
     deleteLesson(editing.id);
     setEditing(null);
-    setNotice("Usunięto zajęcia z planu.");
+    setNotice("Usunięto zajęcia z planu. Nie wrócą w kolejnych tygodniach.");
+  }
+
+  function onSkipDay() {
+    if (!editing) return;
+    const date = (weekDates ?? visibleWeekDates(new Date()))[editing.weekday];
+    const label = formatSkipLabel(date);
+    rememberUndo(editing.id, "Przywróć zajęcia z tego dnia");
+    skipLesson(editing.id, date);
+    setEditing(null);
+    setNotice(`Usunięto zajęcia tylko na ${label}. W kolejnym tygodniu wrócą.`);
   }
 
   async function onRefreshEscort() {
@@ -403,7 +424,7 @@ export function ScheduleApp() {
   const board = (lessons: Lesson[], showChild: boolean) => (
     <>
       <p className="hidden text-sm text-muted-foreground md:block">
-        Kliknij zajęcia, żeby je edytować. Przeciągnij, żeby zmienić dzień i godzinę.
+        Kliknij zajęcia, żeby je edytować. Możesz usunąć je tylko z tego dnia albo z każdego tygodnia. Przeciągnij, żeby zmienić dzień i godzinę.
         Kółko ze śladami na pierwszej i ostatniej lekcji, na basenie, po ZDW i po EarlyStage: kto odprowadza / odbiera (zielony / czerwony, EarlyStage szary).
         {escortOnServer === true
           ? " Kolor zapisuje się na serwerze."
@@ -412,7 +433,7 @@ export function ScheduleApp() {
             : ""}
       </p>
       <p className="text-sm text-muted-foreground md:hidden">
-        Wybierz dzień albo przesuń w bok. Dotknij zajęcia, żeby je edytować.
+        Wybierz dzień albo przesuń w bok. Dotknij zajęcia, żeby je edytować. Usunięcie może dotyczyć tylko tego dnia albo każdego tygodnia.
         Kółko na pierwszej i ostatniej lekcji, na basenie, po ZDW i po EarlyStage oznacza, kto odprowadza / odbiera
         {escortOnServer === true
           ? " i zapisuje się na serwerze."
@@ -641,6 +662,10 @@ export function ScheduleApp() {
           onSave={onSave}
           onRestore={onRestore}
           onDelete={onDelete}
+          onSkipDay={onSkipDay}
+          skipLabel={formatSkipDate(
+            (weekDates ?? visibleWeekDates())[editing.weekday],
+          )}
           onClose={() => setEditing(null)}
         />
       ) : null}

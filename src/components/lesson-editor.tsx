@@ -24,6 +24,8 @@ export function LessonEditor({
   onSave,
   onRestore,
   onDelete,
+  onSkipDay,
+  skipLabel,
   onClose,
 }: {
   lesson: Lesson;
@@ -32,6 +34,8 @@ export function LessonEditor({
   onSave: (patch: LessonPatch) => void;
   onRestore: () => void;
   onDelete: () => void;
+  onSkipDay?: () => void;
+  skipLabel?: string;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(lesson.title);
@@ -221,13 +225,29 @@ export function LessonEditor({
           </Button>
           <Button type="submit" className="min-h-11 md:min-h-9">Zapisz</Button>
         </div>
-        <button
-          type="button"
-          className="mt-3 min-h-11 text-sm text-destructive underline-offset-2 hover:underline md:min-h-0"
-          onClick={onDelete}
-        >
-          Usuń zajęcia z planu
-        </button>
+        <div className="mt-4 flex gap-2 border-t pt-3">
+          {onSkipDay ? (
+            <Button
+              type="button"
+              className="h-auto min-h-11 flex-1 flex-col gap-0 py-2 leading-tight bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-600/30 dark:bg-green-700 dark:hover:bg-green-600"
+              onClick={onSkipDay}
+            >
+              <span>Usuń raz</span>
+              {skipLabel ? (
+                <span className="text-xs font-normal text-white/80">{skipLabel}</span>
+              ) : null}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="destructive"
+            className="h-auto min-h-11 flex-1 flex-col gap-0 py-2 leading-tight dark:bg-red-700 dark:hover:bg-red-600"
+            onClick={onDelete}
+          >
+            <span>Usuń zawsze</span>
+            <span className="text-xs font-normal text-white/80">co tydzień</span>
+          </Button>
+        </div>
       </form>
     </div>
   );

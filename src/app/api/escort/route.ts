@@ -6,7 +6,9 @@ import {
   fetchCloudEscort,
   parseEscortPayload,
   putCloudEscort,
+  sanitizeDeletedLessonIds,
   sanitizeEscortMarks,
+  sanitizeSkippedLessons,
 } from "@/lib/escort-sync";
 
 const file = join(process.cwd(), "public", "escort.json");
@@ -51,7 +53,7 @@ async function readLocalFile() {
     const text = await readFile(file, "utf8");
     return parseEscortPayload(JSON.parse(text));
   } catch {
-    return { updatedAt: null, marks: {} };
+    return { updatedAt: null, marks: {}, deletedLessonIds: [], skippedLessons: {} };
   }
 }
 
@@ -82,15 +84,28 @@ export async function PUT(request: Request) {
   } catch {
     return NextResponse.json({ error: "Niepoprawny JSON." }, { status: 400 });
   }
-  const marks = sanitizeEscortMarks(
-    body && typeof body === "object" && "marks" in body
-      ? (body as { marks: unknown }).marks
-      : body,
-  );
+  const source =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? (body as { marks?: unknown; deletedLessonIds?: unknown; skippedLessons?: unknown })
+      : {};
+  const marks = sanitizeEscortMarks("marks" in source ? source.marks : body);
+  const hasDeleted = "deletedLessonIds" in source;
+  const hasSkipped = "skippedLessons" in source;
+  const deletedLessonIds = hasDeleted
+    ? sanitizeDeletedLessonIds(source.deletedLessonIds)
+    : null;
+  const skippedLessons = hasSkipped ? sanitizeSkippedLessons(source.skippedLessons) : null;
 
   const cloud = cloudConfig();
   if (cloud.url) {
-    const saved = await putCloudEscort(marks, cloud);
+    const saved = await putCloudEscort(
+      {
+        marks,
+        ...(hasDeleted ? { deletedLessonIds: deletedLessonIds ?? [] } : {}),
+        ...(hasSkipped ? { skippedLessons: skippedLessons ?? {} } : {}),
+      },
+      cloud,
+    );
     if (!saved) {
       return NextResponse.json(
         { error: "Nie udało się zapisać kolorów do JSONBin." },
@@ -105,7 +120,13 @@ export async function PUT(request: Request) {
     return NextResponse.json(saved);
   }
 
-  const payload = { updatedAt: new Date().toISOString(), marks };
+  const previous = await readLocalFile();
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    marks,
+    deletedLessonIds: hasDeleted ? (deletedLessonIds ?? []) : previous.deletedLessonIds,
+    skippedLessons: hasSkipped ? (skippedLessons ?? {}) : previous.skippedLessons,
+  };
   await writeFile(file, `${JSON.stringify(payload, null, 2)}\n`);
   return NextResponse.json(payload);
 }
