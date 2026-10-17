@@ -6,8 +6,10 @@ import {
   fetchCloudEscort,
   parseEscortPayload,
   putCloudEscort,
+  sanitizeAddedLessons,
   sanitizeDeletedLessonIds,
   sanitizeEscortMarks,
+  sanitizeLessonPatches,
   sanitizeSkippedLessons,
 } from "@/lib/escort-sync";
 
@@ -53,7 +55,14 @@ async function readLocalFile() {
     const text = await readFile(file, "utf8");
     return parseEscortPayload(JSON.parse(text));
   } catch {
-    return { updatedAt: null, marks: {}, deletedLessonIds: [], skippedLessons: {} };
+    return {
+      updatedAt: null,
+      marks: {},
+      deletedLessonIds: [],
+      skippedLessons: {},
+      lessonPatches: {},
+      addedLessons: [],
+    };
   }
 }
 
@@ -86,15 +95,25 @@ export async function PUT(request: Request) {
   }
   const source =
     body && typeof body === "object" && !Array.isArray(body)
-      ? (body as { marks?: unknown; deletedLessonIds?: unknown; skippedLessons?: unknown })
+      ? (body as {
+          marks?: unknown;
+          deletedLessonIds?: unknown;
+          skippedLessons?: unknown;
+          lessonPatches?: unknown;
+          addedLessons?: unknown;
+        })
       : {};
   const marks = sanitizeEscortMarks("marks" in source ? source.marks : body);
   const hasDeleted = "deletedLessonIds" in source;
   const hasSkipped = "skippedLessons" in source;
+  const hasPatches = "lessonPatches" in source;
+  const hasAdded = "addedLessons" in source;
   const deletedLessonIds = hasDeleted
     ? sanitizeDeletedLessonIds(source.deletedLessonIds)
     : null;
   const skippedLessons = hasSkipped ? sanitizeSkippedLessons(source.skippedLessons) : null;
+  const lessonPatches = hasPatches ? sanitizeLessonPatches(source.lessonPatches) : null;
+  const addedLessons = hasAdded ? sanitizeAddedLessons(source.addedLessons) : null;
 
   const cloud = cloudConfig();
   if (cloud.url) {
@@ -103,6 +122,8 @@ export async function PUT(request: Request) {
         marks,
         ...(hasDeleted ? { deletedLessonIds: deletedLessonIds ?? [] } : {}),
         ...(hasSkipped ? { skippedLessons: skippedLessons ?? {} } : {}),
+        ...(hasPatches ? { lessonPatches: lessonPatches ?? {} } : {}),
+        ...(hasAdded ? { addedLessons: addedLessons ?? [] } : {}),
       },
       cloud,
     );
@@ -126,6 +147,8 @@ export async function PUT(request: Request) {
     marks,
     deletedLessonIds: hasDeleted ? (deletedLessonIds ?? []) : previous.deletedLessonIds,
     skippedLessons: hasSkipped ? (skippedLessons ?? {}) : previous.skippedLessons,
+    lessonPatches: hasPatches ? (lessonPatches ?? {}) : previous.lessonPatches,
+    addedLessons: hasAdded ? (addedLessons ?? []) : previous.addedLessons,
   };
   await writeFile(file, `${JSON.stringify(payload, null, 2)}\n`);
   return NextResponse.json(payload);

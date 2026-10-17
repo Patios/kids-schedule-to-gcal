@@ -86,6 +86,33 @@ export function formatSkipDate(iso: string) {
   }).format(skipDate(iso));
 }
 
+/** Month and calendar-week position for the Monday that starts the displayed week. */
+export function formatWeekHeading(mondayIso: string) {
+  const monday = skipDate(mondayIso);
+  const [year, monthNumber, day] = mondayIso.split("-").map(Number);
+  const dayInMs = 86_400_000;
+  const mondayUtc = Date.UTC(year, monthNumber - 1, day);
+  const firstDayUtc = Date.UTC(year, monthNumber - 1, 1);
+  const firstDay = new Date(firstDayUtc).getUTCDay() || 7;
+  const firstWeekStartUtc = firstDayUtc - (firstDay - 1) * dayInMs;
+  const lastDayUtc = Date.UTC(year, monthNumber, 0);
+  const lastDay = new Date(lastDayUtc).getUTCDay() || 7;
+  const lastWeekStartUtc = lastDayUtc - (lastDay - 1) * dayInMs;
+  const week = Math.floor((mondayUtc - firstWeekStartUtc) / (7 * dayInMs)) + 1;
+  const weeksInMonth = Math.floor((lastWeekStartUtc - firstWeekStartUtc) / (7 * dayInMs)) + 1;
+  const isoDate = new Date(mondayUtc);
+  const isoDay = isoDate.getUTCDay() || 7;
+  isoDate.setUTCDate(isoDate.getUTCDate() + 4 - isoDay);
+  const isoYearStart = new Date(Date.UTC(isoDate.getUTCFullYear(), 0, 1));
+  const isoWeek = Math.ceil(
+    ((isoDate.getTime() - isoYearStart.getTime()) / dayInMs + 1) / 7,
+  );
+  const month = new Intl.DateTimeFormat("pl-PL", { month: "long" }).format(monday);
+  const monthLabel = `${month[0].toLocaleUpperCase("pl-PL")}${month.slice(1)}`;
+
+  return `${monthLabel} · ${week}/${weeksInMonth} · tydz. ${isoWeek}`;
+}
+
 export const WEEKDAYS: { id: Weekday; label: string; short: string }[] = [
   { id: "MO", label: "Poniedziałek", short: "Pn" },
   { id: "TU", label: "Wtorek", short: "Wt" },

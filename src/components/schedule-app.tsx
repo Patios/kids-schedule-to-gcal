@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, Download, Moon, RefreshCw, RotateCcw, Sun, Upload, X } from "lucide-react";
+import { CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, Download, Moon, Plus, RefreshCw, RotateCcw, Sun, Upload, X } from "lucide-react";
 import { LessonEditor } from "@/components/lesson-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -297,6 +297,7 @@ export function ScheduleApp() {
     remove,
     addFromIcs,
     updateLesson,
+    addLesson,
     restoreLesson,
     deleteLesson,
     skipLesson,
@@ -306,13 +307,13 @@ export function ScheduleApp() {
     isModified,
     escortMarks,
     cycleEscort,
-    escortOnServer,
     refreshEscort,
   } = useCalendars();
   const [tab, setTab] = useState("all");
   const [notice, setNotice] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoAction | null>(null);
   const [editing, setEditing] = useState<Lesson | null>(null);
+  const [creating, setCreating] = useState<Lesson | null>(null);
   const [refreshingEscort, setRefreshingEscort] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const names = namesMap(calendars);
@@ -385,7 +386,34 @@ export function ScheduleApp() {
     rememberUndo(editing.id, "Cofnij zapis zajęć");
     updateLesson(editing.id, patch);
     setEditing(null);
-    setNotice("Zapisano zmiany zajęć.");
+    setNotice("Zapisano zmiany. Pojawią się na innych telefonach.");
+  }
+
+  function openCreate(slot?: { weekday: Weekday; start: string; end: string }) {
+    const child = tab === "natalka" || tab === "michal" ? tab : "michal";
+    setEditing(null);
+    setCreating({
+      id: `add-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      child,
+      weekday: slot?.weekday ?? planningDay().day,
+      start: slot?.start ?? "15:00",
+      end: slot?.end ?? "15:45",
+      title: "",
+      kind: "extra",
+    });
+  }
+
+  function onCreate(childId: string, patch: LessonPatch) {
+    if (!creating) return;
+    const lesson: Lesson = { ...creating, ...patch, id: creating.id, child: childId };
+    const previous = lessonState(lesson.id);
+    if (!addLesson(lesson)) {
+      setNotice("Nie udało się dodać zajęć.");
+      return;
+    }
+    setUndo({ id: lesson.id, state: previous, label: "Cofnij dodanie zajęć" });
+    setCreating(null);
+    setNotice("Dodano zajęcia. Pojawią się na innych telefonach.");
   }
 
   function onRestore() {
@@ -423,22 +451,6 @@ export function ScheduleApp() {
 
   const board = (lessons: Lesson[], showChild: boolean) => (
     <>
-      <p className="hidden text-sm text-muted-foreground md:block">
-        Kliknij zajęcia, żeby je edytować. Możesz usunąć je tylko z tego dnia albo z każdego tygodnia. Przeciągnij, żeby zmienić dzień i godzinę.
-        Kółko ze śladami na pierwszej i ostatniej lekcji, na basenie, po ZDW i po EarlyStage: kto odprowadza / odbiera (zielony / czerwony, EarlyStage szary).
-        {escortOnServer === true
-          ? " Kolor zapisuje się na serwerze."
-          : escortOnServer === false
-            ? " Kolor zapisuje się na tym urządzeniu — serwer nie przyjął zapisu."
-            : ""}
-      </p>
-      <p className="text-sm text-muted-foreground md:hidden">
-        Wybierz dzień albo przesuń w bok. Dotknij zajęcia, żeby je edytować. Usunięcie może dotyczyć tylko tego dnia albo każdego tygodnia.
-        Kółko na pierwszej i ostatniej lekcji, na basenie, po ZDW i po EarlyStage oznacza, kto odprowadza / odbiera
-        {escortOnServer === true
-          ? " i zapisuje się na serwerze."
-            : "."}
-      </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">Odprowadzenie / odbiór:</span>
         <span className="inline-flex items-center gap-1"><i className="size-2.5 rounded-full bg-green-500" /> zielony</span>
@@ -464,6 +476,7 @@ export function ScheduleApp() {
         names={names}
         showChild={showChild}
         onOpen={setEditing}
+        onCreateAt={openCreate}
         onMove={(id, next) => {
           rememberUndo(id, "Cofnij przesunięcie");
           updateLesson(id, next);
@@ -471,6 +484,7 @@ export function ScheduleApp() {
         }}
         escortMarks={escortMarks}
         onCycleEscort={cycleEscort}
+        weekDates={weekDates ?? visibleWeekDates()}
       />
     </>
   );
@@ -609,15 +623,21 @@ export function ScheduleApp() {
                     </TabsTrigger>
                   ))}
                 </TabsList>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full touch-manipulation sm:w-auto"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Upload />
-                  Importuj ICS
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" className="w-full touch-manipulation sm:w-auto" onClick={() => openCreate()}>
+                    <Plus />
+                    Dodaj zajęcia
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full touch-manipulation sm:w-auto"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Upload />
+                    Importuj ICS
+                  </Button>
+                </div>
               </div>
               {notice || undo ? (
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" role="status">
@@ -667,6 +687,22 @@ export function ScheduleApp() {
             (weekDates ?? visibleWeekDates())[editing.weekday],
           )}
           onClose={() => setEditing(null)}
+        />
+      ) : null}
+      {creating ? (
+        <LessonEditor
+          creating
+          lesson={creating}
+          defaultChild={creating.child}
+          childOptions={calendars
+            .filter((calendar) => calendar.id === "michal" || calendar.id === "natalka")
+            .map((calendar) => ({ id: calendar.id, label: calendar.name }))}
+          modified={false}
+          onSave={() => undefined}
+          onCreate={onCreate}
+          onRestore={() => undefined}
+          onDelete={() => undefined}
+          onClose={() => setCreating(null)}
         />
       ) : null}
     </div>

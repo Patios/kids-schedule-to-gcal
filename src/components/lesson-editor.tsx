@@ -21,7 +21,11 @@ export function LessonEditor({
   lesson,
   childName,
   modified,
+  creating = false,
+  childOptions = [],
+  defaultChild,
   onSave,
+  onCreate,
   onRestore,
   onDelete,
   onSkipDay,
@@ -31,7 +35,11 @@ export function LessonEditor({
   lesson: Lesson;
   childName?: string;
   modified: boolean;
+  creating?: boolean;
+  childOptions?: { id: string; label: string }[];
+  defaultChild?: string;
   onSave: (patch: LessonPatch) => void;
+  onCreate?: (childId: string, patch: LessonPatch) => void;
   onRestore: () => void;
   onDelete: () => void;
   onSkipDay?: () => void;
@@ -48,6 +56,7 @@ export function LessonEditor({
   const [kind, setKind] = useState<LessonKind>(
     (lesson.kind as LessonKind) in KIND_LABEL ? (lesson.kind as LessonKind) : "extra",
   );
+  const [childId, setChildId] = useState(defaultChild ?? childOptions[0]?.id ?? lesson.child);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,7 +84,7 @@ export function LessonEditor({
       setError("Godzina zakończenia musi być późniejsza niż rozpoczęcia.");
       return;
     }
-    onSave({
+    const patch = {
       title: nextTitle,
       weekday,
       start,
@@ -84,7 +93,12 @@ export function LessonEditor({
       room: room.trim(),
       teacher: teacher.trim(),
       note: note.trim(),
-    });
+    };
+    if (creating && onCreate) {
+      onCreate(childId, patch);
+      return;
+    }
+    onSave(patch);
   }
 
   return (
@@ -97,10 +111,34 @@ export function LessonEditor({
         onClick={(event) => event.stopPropagation()}
         className="max-h-[min(92dvh,100%)] w-full max-w-md overflow-y-auto rounded-t-2xl border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-card-foreground shadow-lg md:rounded-xl md:p-6"
       >
-        <h2 className="text-lg font-semibold">Edytuj zajęcia</h2>
+        <h2 className="text-lg font-semibold">{creating ? "Nowe zajęcia" : "Edytuj zajęcia"}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {childName ? `${childName} · ${lesson.start}–${lesson.end}` : `${lesson.start}–${lesson.end}`}
+          {creating
+            ? "Pojawią się na pozostałych telefonach po odświeżeniu planu."
+            : childName
+              ? `${childName} · ${lesson.start}–${lesson.end}`
+              : `${lesson.start}–${lesson.end}`}
         </p>
+
+        {creating && childOptions.length > 0 ? (
+          <>
+            <label className="mt-4 block text-sm font-medium" htmlFor="lesson-child">
+              Dziecko
+            </label>
+            <select
+              id="lesson-child"
+              className={`mt-1 ${fieldClass}`}
+              value={childId}
+              onChange={(event) => setChildId(event.target.value)}
+            >
+              {childOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
 
         <label className="mt-4 block text-sm font-medium" htmlFor="lesson-title">
           Nazwa
@@ -223,8 +261,11 @@ export function LessonEditor({
           <Button type="button" variant="ghost" className="min-h-11 md:min-h-9" onClick={onClose}>
             Anuluj
           </Button>
-          <Button type="submit" className="min-h-11 md:min-h-9">Zapisz</Button>
+          <Button type="submit" className="min-h-11 md:min-h-9">
+            {creating ? "Dodaj" : "Zapisz"}
+          </Button>
         </div>
+        {creating ? null : (
         <div className="mt-4 flex gap-2 border-t pt-3">
           {onSkipDay ? (
             <Button
@@ -248,6 +289,7 @@ export function LessonEditor({
             <span className="text-xs font-normal text-white/80">co tydzień</span>
           </Button>
         </div>
+        )}
       </form>
     </div>
   );

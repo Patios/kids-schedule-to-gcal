@@ -1,12 +1,25 @@
-import type { EscortColor } from "./schedule";
+import {
+  KIND_LABEL,
+  toMin,
+  type EscortColor,
+  type Lesson,
+  type LessonKind,
+  type Weekday,
+} from "./schedule";
 
 export type SkippedLessons = Record<string, string[]>;
+
+export type LessonPatch = Partial<
+  Pick<Lesson, "weekday" | "start" | "end" | "title" | "kind" | "room" | "teacher" | "location" | "note">
+>;
 
 export type EscortPayload = {
   updatedAt: string | null;
   marks: Record<string, EscortColor>;
   deletedLessonIds: string[];
   skippedLessons: SkippedLessons;
+  lessonPatches: Record<string, LessonPatch>;
+  addedLessons: Lesson[];
 };
 
 function asset(path: string) {
@@ -122,7 +135,14 @@ function authHeaders(includeContentType: boolean, key: string): HeadersInit[] {
 }
 
 export function emptyEscortPayload(): EscortPayload {
-  return { updatedAt: null, marks: {}, deletedLessonIds: [], skippedLessons: {} };
+  return {
+    updatedAt: null,
+    marks: {},
+    deletedLessonIds: [],
+    skippedLessons: {},
+    lessonPatches: {},
+    addedLessons: [],
+  };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -155,6 +175,105 @@ export function sanitizeSkippedLessons(raw: unknown): SkippedLessons {
 }
 
 const LESSON_ID = /^[a-z0-9-]{1,80}$/;
+const ADDED_ID = /^add-[a-z0-9-]{1,74}$/;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const WEEKDAYS = new Set<Weekday>(["MO", "TU", "WE", "TH", "FR"]);
+const CHILDREN = new Set(["michal", "natalka"]);
+
+function cleanText(value: unknown, max: number) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, max);
+}
+
+export function sanitizeLessonPatch(raw: unknown): LessonPatch | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+  const patch: LessonPatch = {};
+  if ("title" in source) {
+    const title = cleanText(source.title, 80);
+    if (!title) return null;
+    patch.title = title;
+  }
+  if ("weekday" in source) {
+    if (typeof source.weekday !== "string" || !WEEKDAYS.has(source.weekday as Weekday)) return null;
+    patch.weekday = source.weekday as Weekday;
+  }
+  if ("start" in source) {
+    if (typeof source.start !== "string" || !TIME.test(source.start)) return null;
+    patch.start = source.start;
+  }
+  if ("end" in source) {
+    if (typeof source.end !== "string" || !TIME.test(source.end)) return null;
+    patch.end = source.end;
+  }
+  if (patch.start && patch.end && toMin(patch.end) <= toMin(patch.start)) return null;
+  if ("kind" in source) {
+    if (typeof source.kind !== "string" || !(source.kind in KIND_LABEL)) return null;
+    patch.kind = source.kind as LessonKind;
+  }
+  for (const field of ["room", "teacher", "location", "note"] as const) {
+    if (!(field in source)) continue;
+    patch[field] = cleanText(source[field], 120);
+  }
+  return Object.keys(patch).length ? patch : null;
+}
+
+export function sanitizeLessonPatches(raw: unknown): Record<string, LessonPatch> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const patches: Record<string, LessonPatch> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Object.keys(patches).length >= 80) break;
+    const id = key.trim();
+    if (!LESSON_ID.test(id)) continue;
+    const patch = sanitizeLessonPatch(value);
+    if (patch) patches[id] = patch;
+  }
+  return patches;
+}
+
+export function sanitizeAddedLessons(raw: unknown): Lesson[] {
+  if (!Array.isArray(raw)) return [];
+  const lessons: Lesson[] = [];
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (lessons.length >= 40) break;
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const source = value as Record<string, unknown>;
+    const id = typeof source.id === "string" ? source.id.trim() : "";
+    if (!ADDED_ID.test(id) || !LESSON_ID.test(id) || seen.has(id)) continue;
+    if (typeof source.child !== "string" || !CHILDREN.has(source.child)) continue;
+    const title = cleanText(source.title, 80);
+    if (!title) continue;
+    if (typeof source.weekday !== "string" || !WEEKDAYS.has(source.weekday as Weekday)) continue;
+    if (typeof source.start !== "string" || !TIME.test(source.start)) continue;
+    if (typeof source.end !== "string" || !TIME.test(source.end)) continue;
+    if (toMin(source.end) <= toMin(source.start)) continue;
+    const kind =
+      typeof source.kind === "string" && source.kind in KIND_LABEL
+        ? (source.kind as LessonKind)
+        : "extra";
+    const lesson: Lesson = {
+      id,
+      child: source.child,
+      weekday: source.weekday as Weekday,
+      start: source.start,
+      end: source.end,
+      title,
+      kind,
+    };
+    const room = cleanText(source.room, 120);
+    const teacher = cleanText(source.teacher, 120);
+    const location = cleanText(source.location, 120);
+    const note = cleanText(source.note, 120);
+    if (room) lesson.room = room;
+    if (teacher) lesson.teacher = teacher;
+    if (location) lesson.location = location;
+    if (note) lesson.note = note;
+    seen.add(id);
+    lessons.push(lesson);
+  }
+  return lessons;
+}
 
 export function sanitizeDeletedLessonIds(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -185,6 +304,8 @@ export function parseEscortPayload(raw: unknown): EscortPayload {
     marks?: unknown;
     deletedLessonIds?: unknown;
     skippedLessons?: unknown;
+    lessonPatches?: unknown;
+    addedLessons?: unknown;
   };
   const source =
     data.record && typeof data.record === "object" && !Array.isArray(data.record)
@@ -193,6 +314,8 @@ export function parseEscortPayload(raw: unknown): EscortPayload {
           marks?: unknown;
           deletedLessonIds?: unknown;
           skippedLessons?: unknown;
+          lessonPatches?: unknown;
+          addedLessons?: unknown;
         })
       : data;
   return {
@@ -200,6 +323,8 @@ export function parseEscortPayload(raw: unknown): EscortPayload {
     marks: sanitizeEscortMarks(source.marks),
     deletedLessonIds: sanitizeDeletedLessonIds(source.deletedLessonIds),
     skippedLessons: sanitizeSkippedLessons(source.skippedLessons),
+    lessonPatches: sanitizeLessonPatches(source.lessonPatches),
+    addedLessons: sanitizeAddedLessons(source.addedLessons),
   };
 }
 
@@ -232,6 +357,8 @@ export async function putCloudEscort(
     marks: Record<string, EscortColor>;
     deletedLessonIds?: string[];
     skippedLessons?: SkippedLessons;
+    lessonPatches?: Record<string, LessonPatch>;
+    addedLessons?: Lesson[];
   },
   overrides?: { url?: string; key?: string },
 ): Promise<EscortPayload | null> {
@@ -239,16 +366,27 @@ export async function putCloudEscort(
   if (!remote) return null;
   let deletedLessonIds = data.deletedLessonIds;
   let skippedLessons = data.skippedLessons;
-  if (deletedLessonIds === undefined || skippedLessons === undefined) {
+  let lessonPatches = data.lessonPatches;
+  let addedLessons = data.addedLessons;
+  if (
+    deletedLessonIds === undefined ||
+    skippedLessons === undefined ||
+    lessonPatches === undefined ||
+    addedLessons === undefined
+  ) {
     const existing = await fetchCloudEscort(overrides);
     if (deletedLessonIds === undefined) deletedLessonIds = existing?.deletedLessonIds ?? [];
     if (skippedLessons === undefined) skippedLessons = existing?.skippedLessons ?? {};
+    if (lessonPatches === undefined) lessonPatches = existing?.lessonPatches ?? {};
+    if (addedLessons === undefined) addedLessons = existing?.addedLessons ?? [];
   }
   const payload: EscortPayload = {
     updatedAt: new Date().toISOString(),
     marks: sanitizeEscortMarks(data.marks),
     deletedLessonIds: sanitizeDeletedLessonIds(deletedLessonIds),
     skippedLessons: sanitizeSkippedLessons(skippedLessons),
+    lessonPatches: sanitizeLessonPatches(lessonPatches),
+    addedLessons: sanitizeAddedLessons(addedLessons),
   };
   const url = writeUrl(remote);
   const body = JSON.stringify(payload);
@@ -294,11 +432,14 @@ export async function loadEscortPayload(): Promise<EscortPayload | null> {
   }
 }
 
-export async function saveEscortMarks(
-  marks: Record<string, EscortColor>,
-  deletedLessonIds?: string[],
-  skippedLessons?: SkippedLessons,
-) {
+export async function saveEscortMarks(data: {
+  marks: Record<string, EscortColor>;
+  deletedLessonIds?: string[];
+  skippedLessons?: SkippedLessons;
+  lessonPatches?: Record<string, LessonPatch>;
+  addedLessons?: Lesson[];
+}) {
+  const { marks, deletedLessonIds, skippedLessons, lessonPatches, addedLessons } = data;
   const payload: EscortPayload = {
     updatedAt: new Date().toISOString(),
     marks: sanitizeEscortMarks(marks),
@@ -306,24 +447,35 @@ export async function saveEscortMarks(
       deletedLessonIds === undefined ? [] : sanitizeDeletedLessonIds(deletedLessonIds),
     skippedLessons:
       skippedLessons === undefined ? {} : sanitizeSkippedLessons(skippedLessons),
+    lessonPatches:
+      lessonPatches === undefined ? {} : sanitizeLessonPatches(lessonPatches),
+    addedLessons: addedLessons === undefined ? [] : sanitizeAddedLessons(addedLessons),
   };
   const wire: {
     updatedAt: string | null;
     marks: Record<string, EscortColor>;
     deletedLessonIds?: string[];
     skippedLessons?: SkippedLessons;
+    lessonPatches?: Record<string, LessonPatch>;
+    addedLessons?: Lesson[];
   } = { updatedAt: payload.updatedAt, marks: payload.marks };
   if (deletedLessonIds !== undefined) wire.deletedLessonIds = payload.deletedLessonIds;
   if (skippedLessons !== undefined) wire.skippedLessons = payload.skippedLessons;
+  if (lessonPatches !== undefined) wire.lessonPatches = payload.lessonPatches;
+  if (addedLessons !== undefined) wire.addedLessons = payload.addedLessons;
   const body = JSON.stringify(wire);
 
   const cloudBody: {
     marks: Record<string, EscortColor>;
     deletedLessonIds?: string[];
     skippedLessons?: SkippedLessons;
+    lessonPatches?: Record<string, LessonPatch>;
+    addedLessons?: Lesson[];
   } = { marks: payload.marks };
   if (deletedLessonIds !== undefined) cloudBody.deletedLessonIds = payload.deletedLessonIds;
   if (skippedLessons !== undefined) cloudBody.skippedLessons = payload.skippedLessons;
+  if (lessonPatches !== undefined) cloudBody.lessonPatches = payload.lessonPatches;
+  if (addedLessons !== undefined) cloudBody.addedLessons = payload.addedLessons;
 
   if (isLocalHost()) {
     const response = await fetch(asset("/api/escort/"), {

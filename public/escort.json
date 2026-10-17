@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-17T21:01:33.552Z",
+  "updatedAt": "2026-10-17T21:22:59.402Z",
   "marks": {
     "natalka:TU:start": "green",
     "natalka:WE:start": "green",
@@ -33,7 +33,10 @@
     "natalka:WE:earlystage": "green"
   },
   "deletedLessonIds": [
+    "n-th-zdw",
     "n-tu-inf"
   ],
-  "skippedLessons": {}
+  "skippedLessons": {},
+  "lessonPatches": {},
+  "addedLessons": []
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type DragEvent, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type TouchEvent } from "react";
 import { Footprints } from "lucide-react";
 import {
   BOARD_END_MIN,
@@ -9,6 +9,7 @@ import {
   WEEKDAYS,
   escortKey,
   escortSlotsByLesson,
+  formatWeekHeading,
   kindClass,
   lessonDuration,
   placeLesson,
@@ -108,6 +109,11 @@ function currentSchoolDay(): Weekday {
   const day = new Date().getDay();
   if (day >= 1 && day <= 5) return WEEKDAYS[day - 1].id;
   return "MO";
+}
+
+function todaySchoolDay(): Weekday | null {
+  const day = new Date().getDay();
+  return day >= 1 && day <= 5 ? WEEKDAYS[day - 1].id : null;
 }
 
 function shiftDay(day: Weekday, delta: number): Weekday {
@@ -335,6 +341,7 @@ function DayColumn({
   preview,
   dropTarget,
   hideHeader,
+  isToday,
   canDrag,
   rangeStart = BOARD_START_MIN,
   rangeEnd = BOARD_END_MIN,
@@ -343,6 +350,7 @@ function DayColumn({
   onDragOver,
   onDrop,
   onOpen,
+  onEmptyClick,
   escortByLesson,
   escortMarks,
   onCycleEscort,
@@ -355,6 +363,7 @@ function DayColumn({
   preview: (Preview & { lesson: Lesson }) | null;
   dropTarget: boolean;
   hideHeader?: boolean;
+  isToday?: boolean;
   canDrag?: boolean;
   rangeStart?: number;
   rangeEnd?: number;
@@ -363,6 +372,7 @@ function DayColumn({
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onOpen: (lesson: Lesson) => void;
+  onEmptyClick?: (weekday: Weekday, start: string, end: string) => void;
   escortByLesson?: Map<string, EscortSlot[]>;
   escortMarks?: Record<string, EscortColor>;
   onCycleEscort?: (child: string, weekday: Weekday, slot: EscortSlot) => void;
@@ -375,22 +385,41 @@ function DayColumn({
   const rangeMin = Math.max(60, rangeEnd - rangeStart);
   const marks = hourMarks(rangeStart, rangeEnd);
 
+  function onBackgroundClick(event: MouseEvent<HTMLDivElement>) {
+    if (!onEmptyClick) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("article, button, a, input, select, textarea")) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.height <= 0) return;
+    const startMin = rangeStart + ((event.clientY - rect.top) / rect.height) * rangeMin;
+    const placed = placeLesson(startMin, 45, rangeStart, rangeEnd);
+    onEmptyClick(day, placed.start, placed.end);
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {hideHeader ? null : (
         <div className="mb-2 text-center">
-          <p className="text-sm font-semibold">{meta.label}</p>
+          <p
+            className={`inline-flex rounded-md px-2 py-1 text-sm font-semibold ${
+              isToday ? "bg-primary text-primary-foreground shadow-sm" : ""
+            }`}
+          >
+            {meta.label}
+          </p>
           <p className="text-xs text-muted-foreground">{meta.short}</p>
         </div>
       )}
       <div
         ref={columnRef}
         data-weekday={day}
+        onClick={onBackgroundClick}
         onDragOver={canDrag ? onDragOver : undefined}
         onDrop={canDrag ? onDrop : undefined}
+        title={onEmptyClick ? "Kliknij puste miejsce, żeby dodać zajęcia" : undefined}
         className={`relative h-[min(720px,calc(100dvh-11rem))] min-h-[560px] rounded-xl border bg-card md:h-[720px] md:min-h-0 ${
-          dropTarget ? "ring-2 ring-ring/70" : ""
-        }`}
+          onEmptyClick ? "cursor-pointer" : ""
+        } ${dropTarget ? "ring-2 ring-ring/70" : ""}`}
       >
         {marks.map((h) => (
           <div
@@ -485,19 +514,24 @@ export function WeekBoard({
   showChild,
   onOpen,
   onMove,
+  onCreateAt,
   escortMarks,
   onCycleEscort,
+  weekDates,
 }: {
   lessons: Lesson[];
   names: Record<string, string>;
   showChild: boolean;
   onOpen: (lesson: Lesson) => void;
   onMove: (id: string, next: Preview) => void;
+  onCreateAt?: (slot: { weekday: Weekday; start: string; end: string }) => void;
   escortMarks: Record<string, EscortColor>;
   onCycleEscort: (child: string, weekday: Weekday, slot: EscortSlot) => void;
+  weekDates: Record<Weekday, string>;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [mobileDay, setMobileDay] = useState<Weekday>("MO");
+  const [today, setToday] = useState<Weekday | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const columnsRef = useRef<Partial<Record<Weekday, HTMLElement | null>>>({});
   const suppressClick = useRef(false);
@@ -506,6 +540,10 @@ export function WeekBoard({
 
   useEffect(() => {
     setMobileDay(currentSchoolDay());
+    const updateToday = () => setToday(todaySchoolDay());
+    updateToday();
+    const timer = window.setInterval(updateToday, 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   function setDragState(next: DragState | null) {
@@ -577,12 +615,18 @@ export function WeekBoard({
     onOpen(lesson);
   }
 
+  function onEmptyClick(weekday: Weekday, start: string, end: string) {
+    if (suppressClick.current || !onCreateAt) return;
+    onCreateAt({ weekday, start, end });
+  }
+
   const preview = drag?.preview
     ? { ...drag.preview, lesson: drag.lesson }
     : null;
 
   const mobileMeta = WEEKDAYS.find((day) => day.id === mobileDay)!;
   const mobileRange = dayRange(lessons, mobileDay);
+  const weekHeading = formatWeekHeading(weekDates.MO);
 
   function onSwipeStart(event: TouchEvent<HTMLDivElement>) {
     const touch = event.changedTouches[0];
@@ -608,6 +652,7 @@ export function WeekBoard({
     <>
       <div className="md:hidden">
         <div className="sticky top-0 z-20 -mx-1 mb-3 bg-[oklch(0.985_0.01_90)]/95 px-1 pt-1 pb-2 backdrop-blur-sm dark:bg-background/95">
+          <p className="mb-2 text-center text-sm font-semibold">{weekHeading}</p>
           <div className="grid grid-cols-5 gap-1">
             {WEEKDAYS.map((day) => {
               const active = day.id === mobileDay;
@@ -656,6 +701,7 @@ export function WeekBoard({
             onDragOver={onDragOver}
             onDrop={onDrop}
             onOpen={onOpenCard}
+            onEmptyClick={onCreateAt ? onEmptyClick : undefined}
             escortByLesson={escortByLesson}
             escortMarks={escortMarks}
             onCycleEscort={onCycleEscort}
@@ -663,40 +709,50 @@ export function WeekBoard({
         </div>
       </div>
 
-      <div
-        className={`hidden gap-2 overflow-x-auto pb-2 md:flex ${drag ? "select-none" : ""}`}
-        onDragEnd={() => {
-          setDragState(null);
-          window.setTimeout(() => {
-            suppressClick.current = false;
-          }, 50);
-        }}
-      >
-        <TimeGutter />
-        <div className="grid min-w-[720px] flex-1 grid-cols-5 gap-2 xl:min-w-0">
-          {WEEKDAYS.map((d) => (
-            <DayColumn
-              key={d.id}
-              day={d.id}
-              lessons={lessons}
-              names={names}
-              showChild={showChild}
-              draggingId={drag?.lesson.id ?? null}
-              preview={preview}
-              dropTarget={preview?.weekday === d.id}
-              canDrag
-              columnRef={(el) => {
-                columnsRef.current[d.id] = el;
-              }}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              onOpen={onOpenCard}
-              escortByLesson={escortByLesson}
-              escortMarks={escortMarks}
-              onCycleEscort={onCycleEscort}
-            />
-          ))}
+      <div className="hidden md:block">
+        <div className="mb-2 flex items-center">
+          <div className="w-12 shrink-0" />
+          <p className="min-w-[720px] flex-1 text-center text-sm font-semibold xl:min-w-0">
+            {weekHeading}
+          </p>
+        </div>
+        <div
+          className={`flex gap-2 overflow-x-auto pb-2 ${drag ? "select-none" : ""}`}
+          onDragEnd={() => {
+            setDragState(null);
+            window.setTimeout(() => {
+              suppressClick.current = false;
+            }, 50);
+          }}
+        >
+          <TimeGutter />
+          <div className="grid min-w-[720px] flex-1 grid-cols-5 gap-2 xl:min-w-0">
+            {WEEKDAYS.map((d) => (
+              <DayColumn
+                key={d.id}
+                day={d.id}
+                lessons={lessons}
+                names={names}
+                showChild={showChild}
+                isToday={today === d.id}
+                draggingId={drag?.lesson.id ?? null}
+                preview={preview}
+                dropTarget={preview?.weekday === d.id}
+                canDrag
+                columnRef={(el) => {
+                  columnsRef.current[d.id] = el;
+                }}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onOpen={onOpenCard}
+                onEmptyClick={onCreateAt ? onEmptyClick : undefined}
+                escortByLesson={escortByLesson}
+                escortMarks={escortMarks}
+                onCycleEscort={onCycleEscort}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </>
